@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Makruk 3D — Mobile UI Mockup v2</title>
+<style>
+/* ============================================================
+   DESIGN TOKENS — mirrors styles.css tokens exactly
+   ============================================================ */
+:root {
+  --panel:        rgba(18, 22, 30, 0.82);
+  --panel-solid:  #12161e;
+  --border:       rgba(255, 255, 255, 0.12);
+  --text:         #eef2f7;
+  --muted:        #9aa6b6;
+  --accent:       #ffc24e;
+  --accent2:      #3aa0ff;
+  --check:        #ff8a4c;
+  --over:         #ffc24e;
+  --bg:           #05060a;
+  --sheet-radius: 20px;
+  --safe-top:     env(safe-area-inset-top,    0px);
+  --safe-bottom:  env(safe-area-inset-bottom, 0px);
+
+  /* v2: atmospheric theme colors */
+  --atm-legend-gold:   #d4882a;
+  --atm-legend-sky:    #7c3d10;
+  --atm-space-deep:    #0c0a1e;
+  --atm-space-nebula:  #3a1060;
+  --atm-hero-city:     #0f1a2e;
+  --atm-hero-dusk:     #1e3050;
+}
+
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1a1a2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: 'Sukhumvit Set', 'Noto Sans Thai', 'Sarabun', system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   PHONE FRAME
+   ============================================================ */
+.phone-frame {
+  width: 390px;
+  height: 844px;
+  background: var(--bg);
+  border-radius: 44px;
+  border: 2px solid rgba(255,255,255,0.15);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 40px 120px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06);
+}
+.phone-frame::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 28px;
+  background: #0a0b0f;
+  border-radius: 20px;
+  z-index: 200;
+}
+
+/* ============================================================
+   ATMOSPHERIC ENVIRONMENT — v2 (per-theme layered bg)
+   Themes: "legend" (ตำนานไทย), "space" (อวกาศ), "hero" (ฮีโร่)
+   ============================================================ */
+
+/* --- Shared canvas bg anchor --- */
+.board-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transition: opacity 0.6s ease;
+}
+
+/* THEME: ตำนานไทย — warm temple / sunset gold */
+.board-bg.theme-legend {
+  background:
+    radial-gradient(ellipse 100% 50% at 50% 0%, rgba(212, 136, 42, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(180, 90, 20, 0.18) 0%, transparent 60%),
+    linear-gradient(180deg,
+      #1a0e04 0%,
+      #2e1508 18%,
+      #130c04 55%,
+      #05060a 100%
+    );
+}
+/* temple silhouette SVG baked in */
+.board-bg.theme-legend::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 200' preserveAspectRatio='xMidYMax slice'%3E%3Cpath d='M0 200 L0 130 L30 130 L30 90 L50 90 L50 70 L60 60 L70 70 L70 90 L90 90 L90 130 L120 130 L120 110 L130 100 L135 85 L140 100 L150 110 L150 130 L180 130 L180 120 L185 108 L190 95 L195 108 L200 120 L200 130 L230 130 L230 115 L235 102 L240 90 L245 102 L250 115 L250 130 L280 130 L280 90 L300 90 L300 70 L310 55 L320 70 L320 90 L340 90 L340 130 L360 130 L360 140 L390 140 L390 200 Z' fill='rgba(30,12,4,0.7)'/%3E%3Cpath d='M55 60 L60 40 L65 60' fill='rgba(30,12,4,0.7)'/%3E%3Cpath d='M305 55 L310 35 L315 55' fill='rgba(30,12,4,0.7)'/%3E%3C/svg%3E") bottom/cover no-repeat;
+  z-index: 1;
+  opacity: 0.85;
+}
+/* golden haze glow near horizon */
+.board-bg.theme-legend::after {
+  content: '';
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  height: 120px;
+  background: radial-gradient(ellipse, rgba(255, 180, 60, 0.18) 0%, transparent 70%);
+  z-index: 2;
+  border-radius: 50%;
+  filter: blur(20px);
+}
+
+/* THEME: อวกาศ/หุ่นยนต์ — deep-space nebula + stars */
+.board-bg.theme-space {
+  background:
+    radial-gradient(ellipse 90% 70% at 70% 20%, rgba(100, 30, 160, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(30, 10, 90, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 80% 75%, rgba(0, 120, 200, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, #06040e 0%, #0c0a1e 40%, #05060a 100%);
+}
+/* star field */
+.board-bg.theme-space::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image:
+    radial-gradient(1px 1px at  8%  12%, rgba(255,255,255,0.9) 0%, transparent 100%),
+    radial-gradient(1px 1px at 22%   5%, rgba(255,255,255,0.7) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 37%  20%, rgba(200,200,255,0.8) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55%   8%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70%  15%, rgba(255,255,255,0.9) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85%   4%, rgba(200,220,255,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px at 12%  30%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 45%  35%, rgba(255,255,255,0.8) 0%, transparent 100%),
+    radial-gradient(1px 1px at 62%  28%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 78%  32%, rgba(200,200,255,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px at 92%  25%, rgba(255,255,255,0.8) 0%, transparent 100%),
+    radial-gradient(1px 1px at  5%  48%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 28%  52%, rgba(255,255,255,0.7) 0%, transparent 100%),
+    radial-gradient(2px 2px at 50%  10%, rgba(180,180,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 15%  68%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 35%  72%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 58%  65%, rgba(200,200,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 74%  70%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 88%  60%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 95%  78%, rgba(255,255,255,0.4) 0%, transparent 100%);
+}
+/* nebula cloud blob */
+.board-bg.theme-space::after {
+  content: '';
+  position: absolute;
+  top: 5%;
+  left: 30%;
+  width: 220px;
+  height: 180px;
+  background: radial-gradient(ellipse, rgba(120, 40, 200, 0.22) 0%, rgba(60, 10, 120, 0.10) 50%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(30px);
+  z-index: 2;
+}
+
+/* THEME: ฮีโร่ — dusk city skyline */
+.board-bg.theme-hero {
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 10%, rgba(255, 120, 40, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 30% 25%, rgba(60, 80, 160, 0.20) 0%, transparent 60%),
+    linear-gradient(180deg,
+      #0a1020 0%,
+      #0f1a2e 25%,
+      #1e3050 45%,
+      #0a1020 65%,
+      #05060a 100%
+    );
+}
+/* city skyline silhouette */
+.board-bg.theme-hero::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 220px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 220' preserveAspectRatio='xMidYMax slice'%3E%3Crect x='0' y='100' width='30' height='120' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='25' y='70' width='20' height='150' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='40' y='90' width='25' height='130' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='60' y='55' width='18' height='165' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='72' y='80' width='14' height='140' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='82' y='60' width='22' height='160' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='100' y='95' width='28' height='125' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='122' y='72' width='16' height='148' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='135' y='50' width='20' height='170' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='150' y='85' width='30' height='135' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='175' y='40' width='14' height='180' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='185' y='65' width='22' height='155' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='202' y='48' width='18' height='172' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='215' y='78' width='28' height='142' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='238' y='55' width='16' height='165' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='250' y='35' width='22' height='185' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='268' y='70' width='26' height='150' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='290' y='88' width='18' height='132' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='304' y='62' width='24' height='158' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='324' y='80' width='20' height='140' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='340' y='50' width='30' height='170' fill='rgba(8,14,28,0.85)'/%3E%3Crect x='365' y='75' width='25' height='145' fill='rgba(8,14,28,0.85)'/%3E%3C/svg%3E") bottom/cover no-repeat;
+  z-index: 1;
+  opacity: 0.9;
+}
+/* dusk sky glow */
+.board-bg.theme-hero::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  height: 100px;
+  background: radial-gradient(ellipse, rgba(255, 100, 30, 0.12) 0%, rgba(60, 80, 180, 0.08) 50%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(25px);
+  z-index: 2;
+}
+
+/* Ground fog / vignette scrim — universal, sits over all themes */
+.board-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  /* vignette */
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 50%,
+      transparent 35%,
+      rgba(5, 6, 10, 0.45) 75%,
+      rgba(5, 6, 10, 0.82) 100%);
+}
+/* soft scrim behind HUD text areas — top and bottom strips */
+.board-vignette::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: linear-gradient(180deg, rgba(5,6,10,0.75) 0%, transparent 100%);
+}
+.board-vignette::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 180px;
+  background: linear-gradient(0deg, rgba(5,6,10,0.82) 0%, transparent 100%);
+}
+
+/* ============================================================
+   3D BOARD PLACEHOLDER
+   ============================================================ */
+.board-3d-placeholder {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -52%) perspective(600px) rotateX(22deg);
+  width: 286px;
+  height: 286px;
+  background:
+    repeating-conic-gradient(
+      rgba(180, 140, 90, 0.38) 0% 25%,
+      rgba(90, 60, 30, 0.38)  25% 50%
+    ) 0 0 / 35.75px 35.75px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 40px rgba(58, 160, 255, 0.08);
+  z-index: 4;
+}
+
+/* ============================================================
+   FULL-SCREEN UI OVERLAY
+   ============================================================ */
+.ui-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+.ui-overlay > * { pointer-events: auto; }
+
+/* ============================================================
+   TOP BAR (title + icon buttons)
+   ============================================================ */
+.topbar {
+  position: absolute;
+  top: calc(var(--safe-top) + 48px);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  z-index: 20;
+  pointer-events: auto;
+}
+.brand-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+}
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.06s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.14); }
+.icon-btn:active { transform: scale(0.94); }
+
+/* ============================================================
+   v2: PLAYER BARS — chess.com style
+   Top bar = opponent (above board), Bottom bar = you (below board)
+   ============================================================ */
+.player-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0 12px;
+  z-index: 20;
+  pointer-events: auto;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+/* Active turn highlight */
+.player-bar.active-turn {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 1px rgba(58,160,255,0.25), 0 4px 20px rgba(58,160,255,0.12);
+}
+/* Top bar — opponent, sits just below topbar */
+.player-bar-top {
+  top: calc(var(--safe-top) + 100px);
+}
+/* Bottom bar — local player, sits just above action bar */
+.player-bar-bottom {
+  bottom: calc(var(--safe-bottom) + 80px);
+}
+
+.player-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.10);
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.player-avatar.active { border-color: var(--accent2); }
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.player-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-name .turn-badge {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  vertical-align: middle;
+}
+.turn-badge.white { background: #f3f5f8; }
+.turn-badge.black { background: #1c2128; }
+
+.player-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Captured pieces tray */
+.captured-tray {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: 1;
+  overflow: hidden;
+}
+.captured-piece {
+  font-size: 12px;
+  opacity: 0.7;
+  line-height: 1;
+}
+.material-delta {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-left: 4px;
+}
+
+/* Clock placeholder */
+.player-clock {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  min-width: 56px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.player-clock.ticking {
+  color: var(--accent);
+  border-color: rgba(255, 194, 78, 0.35);
+  background: rgba(255, 194, 78, 0.08);
+}
+/* Low-time warning */
+.player-clock.low-time {
+  color: var(--check);
+  border-color: rgba(255, 138, 76, 0.4);
+  animation: pulse-clock 1s ease-in-out infinite;
+}
+@keyframes pulse-clock {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* ============================================================
+   v2: MOVE HISTORY STRIP — slim bar below top player bar
+   ============================================================ */
+.move-history-strip {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: calc(var(--safe-top) + 158px); /* just below top player bar */
+  height: 32px;
+  background: rgba(12, 16, 24, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 2px;
+  z-index: 20;
+  overflow: hidden;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.15s ease;
+}
+.move-history-strip:hover { background: rgba(20, 26, 38, 0.85); }
+
+.move-entry {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  padding: 0 5px;
+  flex-shrink: 0;
+}
+.move-entry .move-num { color: rgba(154,166,182,0.5); }
+.move-entry.latest    { color: var(--accent2); font-weight: 700; }
+.move-history-expand {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--muted);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* ============================================================
+   v2: MOVE HISTORY FULL DRAWER (bottom-sheet style)
+   ============================================================ */
+.history-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 60%;
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+  z-index: 42;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  box-shadow: 0 -20px 60px rgba(0,0,0,0.6);
+  pointer-events: auto;
+}
+.history-sheet.open { transform: translateY(0); }
+
+.history-table {
+  padding: 8px 20px 12px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.history-row:last-child { border-bottom: none; }
+.history-row.current-row { background: rgba(58,160,255,0.06); border-radius: 6px; padding-left: 6px; margin: 0 -6px; }
+.h-num   { font-size: 12px; color: var(--muted); min-width: 24px; font-weight: 600; }
+.h-white { font-size: 13px; font-weight: 700; color: var(--text); flex: 1; }
+.h-black { font-size: 13px; font-weight: 700; color: var(--muted); flex: 1; }
+
+/* ============================================================
+   STATUS PILL (kept for check/game-state; now slimmer)
+   ============================================================ */
+.status-area {
+  position: absolute;
+  top: calc(var(--safe-top) + 195px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 138, 76, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 138, 76, 0.3);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--check);
+}
+
+/* ============================================================
+   ACTION BAR (bottom persistent: undo / new game / hint / flip)
+   ============================================================ */
+.action-bar {
+  position: absolute;
+  bottom: calc(var(--safe-bottom) + 16px);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 52px;
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.06s ease, background 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  text-decoration: none;
+}
+.btn:active { transform: scale(0.96); }
+
+.btn-secondary {
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text);
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.14); }
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--accent) 0%, #e0a02c 100%);
+  color: #2a1d05;
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(255, 194, 78, 0.3);
+  flex: 1;
+}
+.btn-primary:hover { filter: brightness(1.07); }
+
+/* Hint button — small icon-only, same row as action bar */
+.hint-btn {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  background: rgba(255, 194, 78, 0.10);
+  border: 1px solid rgba(255, 194, 78, 0.25);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.06s ease;
+}
+.hint-btn:hover { background: rgba(255, 194, 78, 0.20); }
+.hint-btn:active { transform: scale(0.94); }
+
+/* Flip board button */
+.flip-btn {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.2s ease;
+}
+.flip-btn:hover { background: rgba(255,255,255,0.14); }
+.flip-btn:active { transform: rotate(180deg) scale(0.94); }
+
+/* ============================================================
+   SETTINGS BOTTOM-SHEET
+   ============================================================ */
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 5, 10, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 30;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.sheet-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.settings-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 80%;
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  box-shadow: 0 -20px 60px rgba(0,0,0,0.6);
+  pointer-events: auto;
+}
+.settings-sheet.open { transform: translateY(0); }
+
+.drag-handle {
+  width: 40px;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 10px;
+  flex-shrink: 0;
+}
+.sheet-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.sheet-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.15s ease;
+}
+.sheet-close:hover { background: rgba(255,255,255,0.14); }
+.sheet-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 0 2px;
+}
+.sheet-body {
+  overflow-y: auto;
+  padding: 8px 20px 16px;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+.section { margin-bottom: 20px; }
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.seg-control {
+  display: flex;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  width: 100%;
+}
+.seg-btn {
+  flex: 1;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+.seg-btn.active {
+  background: linear-gradient(180deg, var(--accent2), #2b7fd6);
+  color: #fff;
+}
+.seg-btn:hover:not(.active) {
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+}
+.sub-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.sub-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.seg-control-sm {
+  display: flex;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.seg-btn-sm {
+  flex: 1;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.seg-btn-sm.active {
+  background: linear-gradient(180deg, var(--accent2), #2b7fd6);
+  color: #fff;
+}
+.select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.select-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 120px;
+  flex-shrink: 0;
+}
+.select-label .badge-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+  border: 1.5px solid rgba(255,255,255,0.4);
+}
+.badge-dot.w { background: #f3f5f8; }
+.badge-dot.b { background: #1c2128; }
+.select-field {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa6b6' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+  height: 44px;
+}
+.select-field option { background: var(--panel-solid); color: var(--text); }
+.ai-theme-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+.ai-theme-btn:hover { background: rgba(255,255,255,0.12); }
+.sound-row { display: flex; align-items: center; gap: 8px; }
+.mute-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+.mute-btn:hover { background: rgba(255,255,255,0.12); }
+.volume-slider {
+  flex: 1;
+  height: 44px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.sheet-action {
+  padding: 14px 20px calc(var(--safe-bottom) + 14px);
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+.sheet-action .btn-primary {
+  width: 100%;
+  height: 52px;
+  font-size: 16px;
+}
+
+/* ============================================================
+   GAME-OVER OVERLAY
+   ============================================================ */
+.gameover-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3,5,10,0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 50;
+}
+.gameover-card {
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  max-width: 300px;
+  width: 100%;
+}
+.gameover-emoji { font-size: 48px; line-height: 1; }
+.gameover-msg { font-size: 24px; font-weight: 800; color: var(--accent); }
+.gameover-sub { font-size: 14px; color: var(--muted); font-weight: 600; }
+
+/* ============================================================
+   v2: QUICK-START LANDING STATE
+   ============================================================ */
+.quickstart-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  pointer-events: auto;
+  /* subtle top-down dark overlay so bg shows through slightly */
+  background: rgba(5, 6, 10, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.quickstart-overlay.visible { display: flex; }
+
+.qs-logo {
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.qs-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.2px;
+  margin-bottom: 4px;
+}
+.qs-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 32px;
+}
+
+.qs-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 240px;
+  height: 60px;
+  background: linear-gradient(180deg, var(--accent) 0%, #d9951e 100%);
+  color: #2a1d05;
+  border: none;
+  border-radius: 18px;
+  font-size: 18px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 6px 28px rgba(255,194,78,0.38);
+  transition: transform 0.08s ease, box-shadow 0.15s ease;
+  margin-bottom: 16px;
+}
+.qs-play-btn:hover { filter: brightness(1.06); box-shadow: 0 8px 32px rgba(255,194,78,0.45); }
+.qs-play-btn:active { transform: scale(0.97); }
+
+.qs-secondary-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.qs-secondary-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 78px;
+  height: 72px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.06s ease;
+  font-family: inherit;
+  text-align: center;
+}
+.qs-secondary-btn .qs-icon { font-size: 22px; line-height: 1; }
+.qs-secondary-btn .qs-label { font-size: 10px; font-weight: 700; color: var(--muted); }
+.qs-secondary-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+.qs-secondary-btn:active { transform: scale(0.95); }
+
+/* ============================================================
+   LEGEND SHEET
+   ============================================================ */
+.legend-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 70%;
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  box-shadow: 0 -20px 60px rgba(0,0,0,0.6);
+  pointer-events: auto;
+}
+.legend-sheet.open { transform: translateY(0); }
+.piece-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 0 20px 16px;
+}
+.piece-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 8px;
+}
+.piece-icon { font-size: 28px; line-height: 1; }
+.piece-name { font-size: 11px; font-weight: 700; color: var(--text); text-align: center; }
+.piece-role { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.3; }
+
+/* ============================================================
+   DEMO CONTROLS (outside phone frame)
+   ============================================================ */
+.demo-controls {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 999;
+}
+.demo-btn {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+.demo-btn:hover { background: rgba(255,255,255,0.18); }
+.demo-btn.on { background: rgba(58,160,255,0.3); border-color: var(--accent2); color: var(--accent2); }
+.demo-section-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 4px 2px 0;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (min-width: 600px) { body { padding: 20px; } }
+@media (max-width: 480px) {
+  .phone-frame {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    border: none;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== PHONE FRAME ===================== -->
+<div class="phone-frame" id="phoneFrame">
+
+  <!-- ATMOSPHERIC BACKGROUND — theme-legend by default -->
+  <div class="board-bg theme-legend" id="boardBg"></div>
+  <!-- Vignette + text-area scrims always on top of bg -->
+  <div class="board-vignette"></div>
+  <!-- 3D board placeholder -->
+  <div class="board-3d-placeholder"></div>
+
+  <!-- UI OVERLAY -->
+  <div class="ui-overlay">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="brand-chip">
+        ♟ หมากรุกไทย 3D
+      </div>
+      <div class="topbar-actions">
+        <div class="icon-btn" id="helpBtn" title="ตำนานหมาก">?</div>
+        <div class="icon-btn" id="gearBtn" title="การตั้งค่า">⚙</div>
+      </div>
+    </div>
+
+    <!-- PLAYER BAR — TOP (opponent) -->
+    <div class="player-bar player-bar-top" id="playerBarTop">
+      <div class="player-avatar">
+        🤖
+      </div>
+      <div class="player-info">
+        <div class="player-name">
+          <span class="turn-badge black"></span>AI ระดับกลาง
+        </div>
+        <div class="player-label">ฝ่ายดำ</div>
+      </div>
+      <div class="captured-tray" id="capturedTop">
+        <span class="captured-piece">♟</span>
+        <span class="captured-piece">♟</span>
+        <span class="captured-piece">♝</span>
+        <span class="material-delta">+2</span>
+      </div>
+      <div class="player-clock" id="clockTop">05:00</div>
+    </div>
+
+    <!-- MOVE HISTORY STRIP -->
+    <div class="move-history-strip" id="moveStripBtn">
+      <span class="move-entry"><span class="move-num">1.</span> ง5–ง4</span>
+      <span class="move-entry"><span class="move-num"></span> จ8–ง7</span>
+      <span class="move-entry"><span class="move-num">2.</span> ม1–ง3</span>
+      <span class="move-entry latest"><span class="move-num"></span> ช1–ช4</span>
+      <span class="move-history-expand">&#x25B8;</span>
+    </div>
+
+    <!-- CHECK STATUS PILL (shown only when in check) -->
+    <div class="status-area">
+      <div class="status-pill" id="checkPill" style="display:none;">
+        !! รุก!
+      </div>
+    </div>
+
+    <!-- PLAYER BAR — BOTTOM (local player) -->
+    <div class="player-bar player-bar-bottom active-turn" id="playerBarBottom">
+      <div class="player-avatar active">
+        👤
+      </div>
+      <div class="player-info">
+        <div class="player-name">
+          <span class="turn-badge white"></span>คุณ
+        </div>
+        <div class="player-label">ฝ่ายขาว · ตาคุณ</div>
+      </div>
+      <div class="captured-tray" id="capturedBottom">
+        <span class="captured-piece">♞</span>
+        <span class="captured-piece">♟</span>
+      </div>
+      <div class="player-clock ticking" id="clockBottom">04:32</div>
+    </div>
+
+    <!-- ACTION BAR -->
+    <div class="action-bar">
+      <div class="flip-btn" id="flipBtn" title="กลับกระดาน">&#x21C5;</div>
+      <button class="btn btn-secondary" style="min-width:80px;">
+        &#x21A9; ย้อน
+      </button>
+      <button class="btn btn-primary">
+        &#x267B; เกมใหม่
+      </button>
+      <div class="hint-btn" id="hintBtn" title="คำแนะนำ">&#x1F4A1;</div>
+    </div>
+
+  </div><!-- /ui-overlay -->
+
+  <!-- SHEET BACKDROP -->
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+
+  <!-- SETTINGS BOTTOM-SHEET -->
+  <div class="settings-sheet" id="settingsSheet" role="dialog" aria-label="การตั้งค่า">
+    <div class="drag-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">การตั้งค่า</span>
+      <div class="sheet-close" id="sheetClose">&#x2715;</div>
+    </div>
+    <div class="sheet-divider"></div>
+    <div class="sheet-body">
+
+      <!-- โหมดเกม -->
+      <div class="section">
+        <div class="section-label">โหมดเกม</div>
+        <div class="seg-control">
+          <button class="seg-btn" data-mode="2p">2 คน</button>
+          <button class="seg-btn active" data-mode="ai">&#x1F916; vs AI</button>
+          <button class="seg-btn" data-mode="online">&#x1F310; ออนไลน์</button>
+        </div>
+        <div class="sub-group" id="aiSubGroup">
+          <div>
+            <div class="sub-label">ระดับ AI</div>
+            <div class="seg-control-sm">
+              <button class="seg-btn-sm">ง่าย</button>
+              <button class="seg-btn-sm active">กลาง</button>
+              <button class="seg-btn-sm">ยาก</button>
+            </div>
+          </div>
+          <div>
+            <div class="sub-label">เลือกฝ่าย</div>
+            <div class="seg-control-sm">
+              <button class="seg-btn-sm active">ขาว</button>
+              <button class="seg-btn-sm">ดำ</button>
+            </div>
+          </div>
+        </div>
+        <div class="sub-group" id="onlineSubGroup" style="display:none">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-secondary" style="flex:1; height:44px; font-size:13px;">&#x1F195; สร้างห้อง</button>
+            <input style="width:70px; height:44px; text-align:center; letter-spacing:3px; text-transform:uppercase; font-weight:800; background:rgba(255,255,255,0.06); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:8px; font-family:inherit; font-size:14px;" placeholder="รหัส" maxlength="4">
+            <button class="btn btn-secondary" style="height:44px; font-size:13px;">เข้าร่วม</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ธีมหมาก -->
+      <div class="section">
+        <div class="section-label">ธีมหมาก</div>
+        <div class="select-row">
+          <span class="select-label"><span class="badge-dot w"></span>ฝ่ายขาว/กระดาน</span>
+          <div style="display:flex; gap:6px; flex:1;">
+            <select class="select-field" style="flex:1;" id="themeWhiteSelect">
+              <option>&#x1F916; หุ่นยนต์</option>
+              <option>&#x1F981; นักรบ</option>
+              <option selected>&#x1F409; ตำนานไทย</option>
+              <option>&#x265F; คลาสสิก</option>
+            </select>
+            <div class="ai-theme-btn" title="AI สร้างธีม">&#x2728;</div>
+          </div>
+        </div>
+        <div class="select-row">
+          <span class="select-label"><span class="badge-dot b"></span>ฝ่ายดำ</span>
+          <select class="select-field" style="flex:1;">
+            <option selected>&#x1F409; ตำนานไทย</option>
+            <option>&#x1F916; หุ่นยนต์</option>
+            <option>&#x1F981; นักรบ</option>
+            <option>&#x265F; คลาสสิก</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- เสียง -->
+      <div class="section">
+        <div class="section-label">เสียง</div>
+        <div class="select-row" style="margin-bottom:10px;">
+          <span class="select-label">ชุดเสียง</span>
+          <select class="select-field" style="flex:1;">
+            <option>ไชไฟ</option>
+            <option>คลาสสิก</option>
+            <option>ธรรมชาติ</option>
+          </select>
+        </div>
+        <div class="sound-row">
+          <div class="mute-btn">&#x1F50A;</div>
+          <input type="range" class="volume-slider" min="0" max="1" step="0.05" value="0.7">
+        </div>
+      </div>
+
+    </div><!-- /sheet-body -->
+    <div class="sheet-action">
+      <button class="btn btn-primary">&#x267B; เริ่มเกมใหม่</button>
+    </div>
+  </div><!-- /settings-sheet -->
+
+  <!-- PIECE LEGEND SHEET -->
+  <div class="legend-sheet" id="legendSheet" role="dialog" aria-label="ตำนานหมาก">
+    <div class="drag-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">ตำนานหมาก</span>
+      <div class="sheet-close" id="legendClose">&#x2715;</div>
+    </div>
+    <div class="sheet-divider"></div>
+    <div class="sheet-body">
+      <div class="piece-grid">
+        <div class="piece-card">
+          <div class="piece-icon">&#x1F451;</div>
+          <div class="piece-name">ขุน</div>
+          <div class="piece-role">เดิน 1 ช่อง รอบทิศ</div>
+        </div>
+        <div class="piece-card">
+          <div class="piece-icon">&#x1F5E1;&#xFE0F;</div>
+          <div class="piece-name">เม็ด</div>
+          <div class="piece-role">เดินทแยง 1 ช่อง + หน้า</div>
+        </div>
+        <div class="piece-card">
+          <div class="piece-icon">&#x1F418;</div>
+          <div class="piece-name">โคน / ช้าง</div>
+          <div class="piece-role">เดินทแยง 1–2 ช่อง</div>
+        </div>
+        <div class="piece-card">
+          <div class="piece-icon">&#x1F40E;</div>
+          <div class="piece-name">ม้า</div>
+          <div class="piece-role">รูปตัว L</div>
+        </div>
+        <div class="piece-card">
+          <div class="piece-icon">&#x1F3F0;</div>
+          <div class="piece-name">เรือ</div>
+          <div class="piece-role">เดินตรงไม่จำกัด</div>
+        </div>
+        <div class="piece-card">
+          <div class="piece-icon">&#x1FA96;</div>
+          <div class="piece-name">เบี้ย</div>
+          <div class="piece-role">เดินหน้า โดด/ตีเฉียง</div>
+        </div>
+        <div class="piece-card">
+          <div class="piece-icon">&#x2B50;</div>
+          <div class="piece-name">เบี้ยหงาย</div>
+          <div class="piece-role">ข้ามแดน เดิน 6 ทิศ</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /legend-sheet -->
+
+  <!-- MOVE HISTORY FULL SHEET -->
+  <div class="history-sheet" id="historySheet" role="dialog" aria-label="ประวัติการเดิน">
+    <div class="drag-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">ประวัติการเดิน</span>
+      <div class="sheet-close" id="historyClose">&#x2715;</div>
+    </div>
+    <div class="sheet-divider"></div>
+    <div class="history-table">
+      <div class="history-row">
+        <span class="h-num">1</span>
+        <span class="h-white">ง5–ง4</span>
+        <span class="h-black">จ8–ง7</span>
+      </div>
+      <div class="history-row">
+        <span class="h-num">2</span>
+        <span class="h-white">ม1–ง3</span>
+        <span class="h-black">ม8–ง6</span>
+      </div>
+      <div class="history-row">
+        <span class="h-num">3</span>
+        <span class="h-white">ช1–ข2</span>
+        <span class="h-black">ง7–ง5</span>
+      </div>
+      <div class="history-row current-row">
+        <span class="h-num">4</span>
+        <span class="h-white">ช1–ช4</span>
+        <span class="h-black">—</span>
+      </div>
+    </div>
+  </div><!-- /history-sheet -->
+
+  <!-- GAME-OVER OVERLAY -->
+  <div class="gameover-overlay" id="gameoverOverlay">
+    <div class="gameover-card">
+      <div class="gameover-emoji">&#x1F3C6;</div>
+      <div class="gameover-msg">ฝ่ายขาวชนะ!</div>
+      <div class="gameover-sub">รุกจน — ยอดเยี่ยม</div>
+      <button class="btn btn-primary" style="width:100%; font-size:15px;">เล่นใหม่</button>
+    </div>
+  </div>
+
+  <!-- v2: QUICK-START LANDING OVERLAY -->
+  <div class="quickstart-overlay" id="quickstartOverlay">
+    <div class="qs-logo">&#x265F;</div>
+    <div class="qs-title">หมากรุกไทย 3D</div>
+    <div class="qs-subtitle">เลือกโหมดแล้วเริ่มเลย</div>
+
+    <button class="qs-play-btn" id="qsPlayBtn">
+      &#x25B6; เล่นเลย
+    </button>
+
+    <div class="qs-secondary-row">
+      <button class="qs-secondary-btn" id="qsAiBtn">
+        <span class="qs-icon">&#x1F916;</span>
+        <span class="qs-label">vs AI</span>
+      </button>
+      <button class="qs-secondary-btn" id="qsOnlineBtn">
+        <span class="qs-icon">&#x1F310;</span>
+        <span class="qs-label">ออนไลน์</span>
+      </button>
+      <button class="qs-secondary-btn" id="qsSettingsBtn">
+        <span class="qs-icon">&#x2699;</span>
+        <span class="qs-label">ตั้งค่า</span>
+      </button>
+    </div>
+  </div>
+
+</div><!-- /phone-frame -->
+
+<!-- ===================== DEMO CONTROLS ===================== -->
+<div class="demo-controls">
+  <div class="demo-section-label">DEMO — v2</div>
+
+  <div class="demo-section-label" style="padding-top:8px;">สถานะหน้าจอ</div>
+  <button class="demo-btn on" id="demoQuickstartBtn">&#x25B6; Quick-Start (Landing)</button>
+  <button class="demo-btn" id="demoCheckBtn">!! รุก Status</button>
+  <button class="demo-btn" id="demoGameoverBtn">&#x1F3C6; Game Over</button>
+
+  <div class="demo-section-label" style="padding-top:8px;">Bottom Sheets</div>
+  <button class="demo-btn" id="demoSheetBtn">&#x2699; Settings Sheet</button>
+  <button class="demo-btn" id="demoLegendBtn">? Piece Legend</button>
+  <button class="demo-btn" id="demoHistoryBtn">&#x1F4DC; Move History</button>
+
+  <div class="demo-section-label" style="padding-top:8px;">บรรยากาศ / Atmosphere</div>
+  <button class="demo-btn on" id="demoAtmLegendBtn">&#x1F409; ตำนานไทย</button>
+  <button class="demo-btn" id="demoAtmSpaceBtn">&#x1F680; อวกาศ/หุ่นยนต์</button>
+  <button class="demo-btn" id="demoAtmHeroBtn">&#x1F3D9; ฮีโร่</button>
+</div>
+
+<!-- ===================== JS INTERACTIONS ===================== -->
+<script>
+(function () {
+  'use strict';
+
+  /* --- Element refs --- */
+  var sheet        = document.getElementById('settingsSheet');
+  var backdrop     = document.getElementById('sheetBackdrop');
+  var gearBtn      = document.getElementById('gearBtn');
+  var sheetClose   = document.getElementById('sheetClose');
+
+  var legend       = document.getElementById('legendSheet');
+  var helpBtn      = document.getElementById('helpBtn');
+  var legendClose  = document.getElementById('legendClose');
+
+  var historySheet  = document.getElementById('historySheet');
+  var historyClose  = document.getElementById('historyClose');
+  var moveStripBtn  = document.getElementById('moveStripBtn');
+
+  var gameoverEl    = document.getElementById('gameoverOverlay');
+  var quickstartEl  = document.getElementById('quickstartOverlay');
+  var boardBg       = document.getElementById('boardBg');
+  var checkPill     = document.getElementById('checkPill');
+
+  /* --- Helpers --- */
+  function openSheet(el) {
+    closeAllSheets();
+    el.classList.add('open');
+    backdrop.classList.add('visible');
+  }
+  function closeAllSheets() {
+    sheet.classList.remove('open');
+    legend.classList.remove('open');
+    historySheet.classList.remove('open');
+    backdrop.classList.remove('visible');
+  }
+  function closeAll() {
+    closeAllSheets();
+    gameoverEl.style.display = 'none';
+    // do NOT close quickstart here — it has its own logic
+    document.querySelectorAll('.demo-btn.on').forEach(function (b) {
+      // keep atmosphere buttons on-state
+      if (!b.id.startsWith('demoAtm')) b.classList.remove('on');
+    });
+  }
+
+  /* --- Top bar buttons --- */
+  gearBtn.addEventListener('click', function () { openSheet(sheet); });
+  sheetClose.addEventListener('click', closeAllSheets);
+  helpBtn.addEventListener('click', function () { openSheet(legend); });
+  legendClose.addEventListener('click', closeAllSheets);
+
+  /* --- Move history strip → open full sheet --- */
+  moveStripBtn.addEventListener('click', function () { openSheet(historySheet); });
+  historyClose.addEventListener('click', closeAllSheets);
+
+  /* --- Backdrop dismiss --- */
+  backdrop.addEventListener('click', closeAllSheets);
+
+  /* --- Flip board button --- */
+  document.getElementById('flipBtn').addEventListener('click', function () {
+    this.style.transform = this.style.transform === 'rotate(180deg)' ? '' : 'rotate(180deg)';
+  });
+
+  /* --- Hint button (placeholder) --- */
+  document.getElementById('hintBtn').addEventListener('click', function () {
+    this.style.background = 'rgba(255,194,78,0.30)';
+    var self = this;
+    setTimeout(function () { self.style.background = ''; }, 600);
+  });
+
+  /* --- Mode segmented control --- */
+  document.querySelectorAll('.seg-btn[data-mode]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.seg-btn[data-mode]').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var m = btn.getAttribute('data-mode');
+      document.getElementById('aiSubGroup').style.display     = m === 'ai'     ? '' : 'none';
+      document.getElementById('onlineSubGroup').style.display = m === 'online' ? '' : 'none';
+    });
+  });
+
+  /* --- Quick-Start overlay --- */
+  function closeQuickstart() {
+    quickstartEl.classList.remove('visible');
+    quickstartEl.style.display = 'none';
+    document.getElementById('demoQuickstartBtn').classList.remove('on');
+  }
+  function openQuickstart() {
+    closeAll();
+    quickstartEl.style.display = 'flex';
+    quickstartEl.classList.add('visible');
+    document.getElementById('demoQuickstartBtn').classList.add('on');
+  }
+
+  document.getElementById('qsPlayBtn').addEventListener('click', function () {
+    closeQuickstart();
+    // starts 2-player mode immediately
+  });
+  document.getElementById('qsAiBtn').addEventListener('click', function () {
+    closeQuickstart();
+    openSheet(sheet);
+    // pre-select vs AI in the settings sheet
+    document.querySelectorAll('.seg-btn[data-mode]').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelector('.seg-btn[data-mode="ai"]').classList.add('active');
+    document.getElementById('aiSubGroup').style.display = '';
+    document.getElementById('onlineSubGroup').style.display = 'none';
+  });
+  document.getElementById('qsOnlineBtn').addEventListener('click', function () {
+    closeQuickstart();
+    openSheet(sheet);
+    document.querySelectorAll('.seg-btn[data-mode]').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelector('.seg-btn[data-mode="online"]').classList.add('active');
+    document.getElementById('aiSubGroup').style.display = 'none';
+    document.getElementById('onlineSubGroup').style.display = '';
+  });
+  document.getElementById('qsSettingsBtn').addEventListener('click', function () {
+    closeQuickstart();
+    openSheet(sheet);
+  });
+
+  /* --- Atmosphere theme switcher --- */
+  var atmBtns = ['demoAtmLegendBtn', 'demoAtmSpaceBtn', 'demoAtmHeroBtn'];
+  var atmThemes = { demoAtmLegendBtn: 'theme-legend', demoAtmSpaceBtn: 'theme-space', demoAtmHeroBtn: 'theme-hero' };
+
+  atmBtns.forEach(function (id) {
+    document.getElementById(id).addEventListener('click', function () {
+      atmBtns.forEach(function (bid) { document.getElementById(bid).classList.remove('on'); });
+      this.classList.add('on');
+      boardBg.className = 'board-bg ' + atmThemes[id];
+    });
+  });
+
+  /* --- Demo buttons --- */
+  document.getElementById('demoQuickstartBtn').addEventListener('click', function () {
+    if (quickstartEl.style.display === 'flex') { closeQuickstart(); }
+    else { openQuickstart(); }
+  });
+
+  document.getElementById('demoSheetBtn').addEventListener('click', function () {
+    if (sheet.classList.contains('open')) { closeAllSheets(); this.classList.remove('on'); }
+    else { openSheet(sheet); this.classList.add('on'); closeQuickstart(); }
+  });
+
+  document.getElementById('demoLegendBtn').addEventListener('click', function () {
+    if (legend.classList.contains('open')) { closeAllSheets(); this.classList.remove('on'); }
+    else { openSheet(legend); this.classList.add('on'); closeQuickstart(); }
+  });
+
+  document.getElementById('demoHistoryBtn').addEventListener('click', function () {
+    if (historySheet.classList.contains('open')) { closeAllSheets(); this.classList.remove('on'); }
+    else { openSheet(historySheet); this.classList.add('on'); closeQuickstart(); }
+  });
+
+  document.getElementById('demoGameoverBtn').addEventListener('click', function () {
+    if (gameoverEl.style.display === 'flex') { gameoverEl.style.display = 'none'; this.classList.remove('on'); }
+    else { closeAll(); closeQuickstart(); gameoverEl.style.display = 'flex'; this.classList.add('on'); }
+  });
+
+  document.getElementById('demoCheckBtn').addEventListener('click', function () {
+    var showing = checkPill.style.display !== 'none';
+    if (showing) {
+      checkPill.style.display = 'none';
+      this.classList.remove('on');
+      this.textContent = '!! รุก Status';
+    } else {
+      checkPill.style.display = 'inline-flex';
+      this.classList.add('on');
+      this.textContent = 'ซ่อน รุก Status';
+    }
+  });
+
+  /* --- Touch swipe-down to close sheets --- */
+  var touchStartY = 0;
+  [sheet, legend, historySheet].forEach(function (el) {
+    el.addEventListener('touchstart', function (e) {
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    el.addEventListener('touchend', function (e) {
+      if (e.changedTouches[0].clientY - touchStartY > 60) closeAllSheets();
+    }, { passive: true });
+  });
+
+  /* --- Show Quick-Start on load (default first-run state) --- */
+  openQuickstart();
+
+})();
+</script>
+</body>
+</html>
