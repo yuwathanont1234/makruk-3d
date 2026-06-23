@@ -54,6 +54,10 @@ export class BoardView {
   private pointer = new THREE.Vector2();
   onPick: ((sq: Square) => void) | null = null;
 
+  // สถานะกลับกระดาน: false = มองจากฝั่งขาว (ค่าเริ่มต้น), true = มองจากฝั่งดำ
+  private flipped = false;
+  private hintGroup = new THREE.Group();
+
   constructor(canvas: HTMLCanvasElement, themeWhite: Theme, themeBlack: Theme, board: Board) {
     this.themeWhite = themeWhite;
     this.themeBlack = themeBlack;
@@ -76,7 +80,7 @@ export class BoardView {
     this.controls.maxDistance = 24;
     this.controls.maxPolarAngle = 1.45;
 
-    this.scene.add(this.boardGroup, this.pieceGroup, this.selGroup, this.lastGroup, this.lightGroup);
+    this.scene.add(this.boardGroup, this.pieceGroup, this.selGroup, this.lastGroup, this.hintGroup, this.lightGroup);
 
     this.applyEnvironment();
     this.buildBoard();
@@ -221,6 +225,7 @@ export class BoardView {
   rebuildPieces(board: Board): void {
     // invalidate animation ที่กำลังทำงาน (ตา in-flight จะไม่แตะ object เก่าอีก)
     this.generation++;
+    this.hintGroup.clear();
     // dispose ทุก child ใน group — รวม orphan จาก animation ที่ค้าง (หมากที่ถูก
     // กิน/ฝ่ายรุกที่ถูก delete ออกจาก map ไปก่อนแล้วแต่ยังอยู่ใน scene graph)
     for (const obj of [...this.pieceGroup.children]) disposeObject(obj);
@@ -246,6 +251,7 @@ export class BoardView {
 
   /** เคลื่อนหมาก + อนิเมชัน (เลื่อน/ม้ากระโดด/กินหมาก/เลื่อนขั้น) */
   async animateMove(o: AnimateOpts): Promise<void> {
+    this.hintGroup.clear(); // มีการเดินแล้ว — ล้างไฮไลต์คำแนะนำที่ค้างอยู่
     const gen = this.generation; // ถ้าถูก rebuild ระหว่างอนิเมชัน ค่านี้จะไม่ตรงอีก
     const fromSq = o.move.from;
     const toSq = o.move.to;
@@ -373,6 +379,57 @@ export class BoardView {
 
   clearLastMove(): void {
     this.lastGroup.clear();
+  }
+
+  // --- hint (ไฮไลต์ตาเดินที่แนะนำ) ---
+  /** แสดงไฮไลต์ตาเดินที่แนะนำ: วงรอบช่องต้นทาง + วงที่ช่องปลายทาง (สีไฮไลต์ของธีม) */
+  showHint(from: Square, to: Square): void {
+    this.hintGroup.clear();
+    const color = this.theme.board.select;
+    const ring = this.flat(new THREE.RingGeometry(0.34, 0.46, 32), color, 0.9, 0.02, from);
+    const dot = this.flat(new THREE.CircleGeometry(0.2, 24), color, 0.9, 0.02, to);
+    this.hintGroup.add(ring, dot);
+    // เด้งเบา ๆ ให้สะดุดตา (linear เพราะคำนวณ sine เอง)
+    void this.animator.tween(
+      0.4,
+      (e) => {
+        const s = 1 + Math.sin(e * Math.PI) * 0.25;
+        ring.scale.setScalar(s);
+        dot.scale.setScalar(s);
+      },
+      (t) => t
+    );
+  }
+
+  clearHint(): void {
+    this.hintGroup.clear();
+  }
+
+  // --- flip board (หมุนกล้อง 180° รอบกระดาน เพื่อมองจากฝั่งตรงข้าม) ---
+  get isFlipped(): boolean {
+    return this.flipped;
+  }
+
+  /**
+   * สลับมุมมองกระดาน: หมุน azimuth ของกล้อง 180° รอบ target อย่างนุ่มนวล
+   * ตั้งค่า camera.position โดยตรงทุกเฟรม; OrbitControls จะ sync spherical จากตำแหน่งนี้
+   * ใน controls.update() เฟรมถัดไป (ทำงานร่วมกับ damping ได้)
+   */
+  flip(): void {
+    this.flipped = !this.flipped;
+    const target = this.controls.target.clone();
+    const cam = this.camera.position;
+    // เวกเตอร์จาก target → กล้อง บนระนาบ XZ; หมุนรอบแกน Y 180° (คง y/ระยะเดิม)
+    const x0 = cam.x - target.x;
+    const z0 = cam.z - target.z;
+    const a0 = Math.atan2(z0, x0);
+    const radius = Math.hypot(x0, z0);
+    void this.animator.tween(0.6, (e) => {
+      const a = a0 + Math.PI * e;
+      cam.x = target.x + Math.cos(a) * radius;
+      cam.z = target.z + Math.sin(a) * radius;
+      this.camera.lookAt(target);
+    });
   }
 
   // --- picking (แยกคลิกออกจากการลากหมุนกล้อง) ---
