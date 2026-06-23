@@ -5,7 +5,7 @@ type Handler = (payload: Record<string, unknown>) => void;
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ตัดตัวที่สับสน (0/O, 1/I)
 
-export function genRoomCode(len = 4): string {
+export function genRoomCode(len = 6): string {
   const buf = new Uint32Array(len);
   crypto.getRandomValues(buf);
   let s = '';
