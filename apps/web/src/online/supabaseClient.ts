@@ -12,7 +12,7 @@ export function getSupabase(): SupabaseClient | null {
   if (!URL || !KEY) return null;
   if (!client) {
     client = createClient(URL, KEY, {
-      realtime: { params: { eventsPerSecond: 20 } },
+      realtime: { params: { eventsPerSecond: 8 } },
       auth: { persistSession: false },
     });
   }
