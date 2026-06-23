@@ -43,6 +43,6 @@ export const superhero: Theme = createGltfTheme({
       bia: B + 'themes/hero/bia.glb',
     },
     targetHeight: 1.15,
-    rotation: { ma: -Math.PI / 2 }, // มอเตอร์ไซค์เจนแบบ side view → หมุนให้หน้ารถหันเข้าหาคู่ต่อสู้
+    rotation: { ma: Math.PI / 2 }, // มอเตอร์ไซค์เจนแบบ side view (หัว=local −x) → หมุนให้หน้ารถหันเข้าหาคู่ต่อสู้
   },
 });
