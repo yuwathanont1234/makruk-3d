@@ -1,0 +1,337 @@
+:root {
+  --panel: rgba(18, 22, 30, 0.72);
+  --panel-solid: #12161e;
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #eef2f7;
+  --muted: #9aa6b6;
+  --accent: #ffc24e;
+  --accent2: #3aa0ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #05060a;
+  color: var(--text);
+  font-family: 'Sukhumvit Set', 'Noto Sans Thai', 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+#scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#ui > * {
+  pointer-events: auto;
+}
+
+/* top bar */
+.topbar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.brand {
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: 0.2px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  padding: 9px 14px;
+  border-radius: 12px;
+}
+.statusline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: 12px;
+}
+.turn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.badge {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+.badge.white {
+  background: #f3f5f8;
+}
+.badge.black {
+  background: #1c2128;
+}
+.status {
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 1px;
+}
+.status.check {
+  color: #ff8a4c;
+}
+.status.over {
+  color: var(--accent);
+}
+.status.thinking {
+  color: var(--accent2);
+}
+
+/* dock */
+.dock {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100% - 24px);
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  border-radius: 16px;
+}
+.group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lbl {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.seg {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.segbtn {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.segbtn.active {
+  background: linear-gradient(180deg, var(--accent2), #2b7fd6);
+  color: #fff;
+}
+
+.select {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.select option {
+  background: var(--panel-solid);
+  color: var(--text);
+}
+
+.btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.06s ease, background 0.15s ease;
+}
+.btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.btn:active {
+  transform: scale(0.96);
+}
+.btn.primary {
+  background: linear-gradient(180deg, var(--accent), #e0a02c);
+  color: #2a1d05;
+  border-color: transparent;
+}
+.btn.icon {
+  padding: 8px 10px;
+}
+.btn.big {
+  padding: 12px 26px;
+  font-size: 16px;
+}
+.range {
+  width: 84px;
+  accent-color: var(--accent);
+}
+.code-input {
+  width: 70px;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  text-align: center;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  font-family: inherit;
+}
+.online-status {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  max-width: 280px;
+}
+.online-status .code {
+  color: var(--accent);
+  font-size: 15px;
+  letter-spacing: 2px;
+}
+
+/* history */
+.sidepanel {
+  position: absolute;
+  top: 70px;
+  right: 14px;
+  width: 184px;
+  max-height: 46vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+.sidepanel h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.history {
+  margin: 0;
+  padding: 0 0 0 4px;
+  list-style: none;
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.history li {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  counter-increment: mv;
+}
+.history li::before {
+  content: counter(mv) '.';
+  color: var(--muted);
+  min-width: 22px;
+  text-align: right;
+}
+.history {
+  counter-reset: mv;
+}
+.history li.white .mv {
+  color: #f3f5f8;
+}
+.history li.black .mv {
+  color: #ffb37a;
+}
+
+/* overlay */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 5, 10, 0.55);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.overlay.hidden {
+  opacity: 0;
+  visibility: hidden; /* ปิดการรับคลิกจริง ๆ (กัน #ui > * ที่ specificity สูงกว่ามา override pointer-events) */
+  pointer-events: none;
+}
+.card {
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 34px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.card .msg {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+@media (max-width: 820px) {
+  .sidepanel {
+    display: none;
+  }
+  .brand {
+    font-size: 16px;
+  }
+  .dock {
+    gap: 8px;
+    padding: 8px;
+  }
+  .lbl {
+    display: none;
+  }
+}

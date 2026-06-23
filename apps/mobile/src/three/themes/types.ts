@@ -1,0 +1,39 @@
+import type * as THREE from 'three';
+import type { Color, PieceType } from '@makruk/engine';
+
+/** สีของกระดานและไฮไลต์ */
+export interface BoardStyle {
+  light: number; // สีช่องอ่อน
+  dark: number; // สีช่องเข้ม
+  frame: number; // กรอบกระดาน
+  select: number; // ไฮไลต์ตัวที่เลือก
+  move: number; // ช่องที่เดินได้
+  capture: number; // ช่องที่กินได้
+  lastMove: number; // ช่องตาเดินล่าสุด
+  metalness?: number;
+  roughness?: number;
+}
+
+/** ฉาก/แสง/พื้นหลัง */
+export interface EnvironmentStyle {
+  background: number; // สีพื้นหลัง
+  backdrop?: 'stars' | 'grid' | 'none'; // ลูกเล่นพื้นหลัง
+  fog?: { color: number; near: number; far: number };
+  hemi: { sky: number; ground: number; intensity: number };
+  dir: { color: number; intensity: number };
+  ambient?: number;
+}
+
+export interface Theme {
+  id: string;
+  name: string; // ชื่อไทย
+  description: string;
+  emoji: string;
+  defaultSoundPack: string;
+  board: BoardStyle;
+  environment: EnvironmentStyle;
+  /** สร้างตัวหมาก 1 ตัว (ฐานอยู่ที่ y=0, ตั้งขึ้น +y) คืน Object3D */
+  buildPiece(type: PieceType, color: Color): THREE.Object3D;
+  /** โหลดทรัพยากร (ธีมที่ใช้โมเดล) — เรียกก่อนใช้งาน */
+  preload?(): Promise<void>;
+}
