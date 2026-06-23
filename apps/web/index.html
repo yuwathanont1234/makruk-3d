@@ -2,6 +2,10 @@
 <html lang="th">
   <head>
     <meta charset="UTF-8" />
+    <!-- GitHub Pages cannot set HTTP response headers, so this meta CSP is the portable
+         control plane for all deployments. Vercel mirrors it via vercel.json headers. -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; media-src 'self' blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data:" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
     <meta name="theme-color" content="#241a10" />
     <link rel="manifest" href="/manifest.webmanifest" />
