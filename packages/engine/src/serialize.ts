@@ -8,8 +8,17 @@ export function squareToCoord(sq: Square): string {
 }
 
 export function coordToSquare(coord: string): Square {
+  // ต้องเป็นสตริงยาว 2 ตัวพอดี เช่น "e3" (กันตาเดินจาก network ที่เพี้ยน/ถูกแก้ไข)
+  if (typeof coord !== 'string' || coord.length !== 2) {
+    throw new Error(`พิกัดไม่ถูกต้อง: ${JSON.stringify(coord)}`);
+  }
   const f = FILE_LETTERS.indexOf(coord[0]);
-  const r = parseInt(coord.slice(1), 10) - 1;
+  if (f < 0) throw new Error(`ไฟล์ไม่ถูกต้อง (ต้องเป็น a-h): ${JSON.stringify(coord)}`);
+  const rankCh = coord[1];
+  if (rankCh < '1' || rankCh > '8') {
+    throw new Error(`แถวไม่ถูกต้อง (ต้องเป็น 1-8): ${JSON.stringify(coord)}`);
+  }
+  const r = rankCh.charCodeAt(0) - '1'.charCodeAt(0);
   return squareAt(f, r);
 }
 
