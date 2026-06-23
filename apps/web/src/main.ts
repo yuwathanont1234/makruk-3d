@@ -130,6 +130,15 @@ async function onAiTheme(): Promise<void> {
   }
   const prompt = window.prompt('พิมพ์ธีมที่อยากได้ แล้ว AI จะสร้างตัวหมาก 3D ให้\n(เช่น โจรสลัด, อวกาศไซเบอร์, สัตว์ในตำนาน, นินจา):');
   if (!prompt) return;
+  // เตือนก่อนเรียกบริการสร้างโมเดล (มีค่าใช้จ่าย/ใช้เวลานาน/ผลหายเมื่อรีโหลด)
+  const ok = window.confirm(
+    'การสร้างตัวหมาก 3D ด้วย AI:\n' +
+      '• อาจใช้เวลาหลายนาที\n' +
+      '• เป็นบริการที่มีค่าใช้จ่าย (paid generation)\n' +
+      '• ผลลัพธ์จะหายไปเมื่อรีโหลดหน้า\n\n' +
+      'ต้องการสร้างต่อหรือไม่?'
+  );
+  if (!ok) return;
   hud.setStatus('✨ AI กำลังสร้างโมเดล 3D… (อาจใช้เวลาหลายนาที)', 'normal');
   try {
     const res = await fetch(`${url}/functions/v1/generate-theme`, {
