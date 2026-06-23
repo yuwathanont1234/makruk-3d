@@ -8,11 +8,17 @@ import {
   squareAt,
   coordToSquare,
   status,
+  positionKey,
 } from '../src/index';
-import type { Board, GameState } from '../src/index';
+import type { Board, Color, GameState } from '../src/index';
 
 function emptyBoard(): Board {
   return new Array(64).fill(null);
+}
+
+/** สร้าง GameState สำหรับทดสอบจากกระดาน + ฝ่ายที่ถึงตา (เติมฟิลด์ที่เหลือให้ตรงกับกระดานจริง) */
+function stateOf(board: Board, turn: Color): GameState {
+  return { board, turn, history: [], positions: [positionKey(board, turn)], counting: null };
 }
 
 describe('ตำแหน่งเริ่มต้น', () => {
@@ -108,7 +114,7 @@ describe('การรุกและจบเกม', () => {
     b[coordToSquare('a8')] = { type: 'rua', color: 'black' }; // คุมไฟล์ a (รุก + คุม a2)
     b[coordToSquare('b8')] = { type: 'rua', color: 'black' }; // คุมไฟล์ b (b1, b2)
     b[coordToSquare('e5')] = { type: 'khun', color: 'black' };
-    const st: GameState = { board: b, turn: 'white', history: [] };
+    const st: GameState = stateOf(b, 'white');
     expect(status(st)).toBe('checkmate');
   });
 
@@ -117,7 +123,7 @@ describe('การรุกและจบเกม', () => {
     b[coordToSquare('a1')] = { type: 'khun', color: 'white' };
     b[coordToSquare('c2')] = { type: 'met', color: 'black' }; // คุม b1
     b[coordToSquare('b3')] = { type: 'khun', color: 'black' }; // คุม a2, b2
-    const st: GameState = { board: b, turn: 'white', history: [] };
+    const st: GameState = stateOf(b, 'white');
     expect(inCheck(b, 'white')).toBe(false);
     expect(status(st)).toBe('stalemate');
   });
