@@ -83,12 +83,19 @@ export function createGltfTheme(opts: GltfThemeOptions): Theme {
 
   async function preload(): Promise<void> {
     const urls = Array.from(new Set(PIECE_TYPES.map((t) => opts.manifest.models[t]).filter(Boolean) as string[]));
-    await Promise.all(
+    // โหลดทีละ URL แบบทนทาน: ตัวที่โหลดได้ขึ้น cache (แสดงโมเดลจริง),
+    // ตัวที่ล้มเหลวจะไม่อยู่ใน cache → buildPiece fall back เป็นกล่อง placeholder
+    // ไม่ปล่อยให้ GLB ตัวเดียวพังทั้งธีม (เตือนแบบเบา ๆ แทนการล้มทั้งหมด)
+    const results = await Promise.allSettled(
       urls.map(async (url) => {
         const gltf = await loader.loadAsync(url);
         cache.set(url, { scene: gltf.scene, animations: gltf.animations ?? [] });
       })
     );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) {
+      console.warn(`[theme:${opts.id}] โหลดโมเดลไม่สำเร็จ ${failed}/${urls.length} ชิ้น — ใช้ตัวแทน (กล่อง) สำหรับชิ้นที่ขาด`);
+    }
   }
 
   function buildPiece(type: PieceType, color: Color): THREE.Object3D {
