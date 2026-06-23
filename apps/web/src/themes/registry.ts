@@ -6,9 +6,11 @@ import { roman } from './roman';
 import { aiHolo } from './aiHolo';
 import { workers } from './workers';
 import { thaiMyth } from './thaiMyth';
+import { spaceRobot } from './robot';
+import { superhero } from './hero';
 
-/** ธีมทั้งหมดที่ใช้ได้ (procedural + ธีมโมเดล 3D ตำนานไทยที่ AI สร้าง) */
-export const THEMES: Theme[] = [ayutthaya, modern, roman, space, aiHolo, workers, thaiMyth];
+/** ธีมทั้งหมดที่ใช้ได้ (procedural + ธีมโมเดล 3D ที่ AI สร้าง: ตำนานไทย/หุ่นยนต์/ฮีโร่) */
+export const THEMES: Theme[] = [ayutthaya, modern, roman, space, aiHolo, workers, thaiMyth, spaceRobot, superhero];
 
 export const DEFAULT_THEME_ID = 'ayutthaya';
 
