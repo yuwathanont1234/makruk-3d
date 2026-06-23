@@ -59,7 +59,37 @@ drop policy if exists "themes_authenticated_delete" on storage.objects;
 -- can still upload GLB files without any explicit write policy.
 
 -- ---------------------------------------------------------------------------
--- 3. Recommended maintenance (comment only — no pg_cron required)
+-- 3. Atomic increment function for IP rate-limiting (C1 fix)
+--
+--    public.increment_theme_gen(p_ip, p_day) → integer
+--      Inserts a new row with count=1, or increments count by 1 atomically
+--      using INSERT … ON CONFLICT DO UPDATE SET count = count + 1.
+--      Returns the NEW count after the increment.
+--
+--    security definer: runs as the function owner (postgres / superuser) so it
+--    can always write to theme_gen_log regardless of the caller's role.
+--    grant execute to service_role so the Edge Function's service-role client
+--    can call it via rpc(); anon/authenticated are NOT granted execute.
+--
+--    The CREATE OR REPLACE makes the migration idempotent on re-runs.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.increment_theme_gen(p_ip text, p_day date)
+returns integer language sql security definer as $$
+  insert into public.theme_gen_log(ip, day, count)
+  values (p_ip, p_day, 1)
+  on conflict (ip, day)
+  do update set count = public.theme_gen_log.count + 1
+  returning count;
+$$;
+
+-- Grant execute only to service_role (used by the Edge Function).
+-- Revoke from public/anon first to be explicit.
+revoke execute on function public.increment_theme_gen(text, date) from public;
+grant  execute on function public.increment_theme_gen(text, date) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 4. Recommended maintenance (comment only — no pg_cron required)
 --
 --    theme_gen_log retention:
 --      Rows older than 30 days are safe to delete; they are no longer needed

@@ -138,8 +138,12 @@ async function mapWithConcurrency<T, R>(
 // ---------------------------------------------------------------------------
 // IP daily rate-limit using public.theme_gen_log(ip, day, count).
 // Uses the service-role client so it bypasses RLS.
-// Fails OPEN: if the table is missing or any DB error occurs we log and continue
-// so a missing migration doesn't take down the function.
+// Increments the counter atomically via the increment_theme_gen RPC, which
+// executes a single INSERT … ON CONFLICT DO UPDATE SET count = count + 1
+// in Postgres and returns the new count. This avoids the race condition in the
+// previous upsert+read approach and the bug where upsert reset count to 1.
+// Fails OPEN: if the RPC errors we log and continue so a missing migration
+// doesn't take down the function.
 // ---------------------------------------------------------------------------
 async function checkAndIncrementRateLimit(
   sb: ReturnType<typeof createClient>,
@@ -147,66 +151,23 @@ async function checkAndIncrementRateLimit(
   maxPerDay: number,
 ): Promise<{ limited: boolean; count: number }> {
   try {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = new Date().toISOString().slice(0, 10) as unknown as string; // YYYY-MM-DD
 
-    // INSERT … ON CONFLICT (ip, day) DO UPDATE SET count = count + 1
-    const { error: upsertErr } = await (sb as any).from('theme_gen_log').upsert(
-      { ip, day: today, count: 1 },
-      // ignoreDuplicates: false → triggers the ON CONFLICT update path
-      { onConflict: 'ip,day', ignoreDuplicates: false },
-    );
+    // Single atomic RPC: INSERT … ON CONFLICT DO UPDATE SET count = count + 1
+    // Returns the incremented count as an integer.
+    const { data, error } = await (sb as any).rpc('increment_theme_gen', {
+      p_ip: ip,
+      p_day: today,
+    });
 
-    if (upsertErr) {
-      // Table likely doesn't exist yet — fail-open
-      console.error('theme_gen_log upsert error (fail-open):', upsertErr.message);
+    if (error) {
+      // Function missing (migration not yet applied) or other DB error — fail-open.
+      console.error('increment_theme_gen rpc error (fail-open):', error.message);
       return { limited: false, count: 0 };
     }
 
-    // Supabase upsert with ignoreDuplicates:false replaces the row rather than
-    // incrementing, so we need a separate raw increment via rpc or re-select.
-    // Use a simple read-increment-write with a raw SQL approach via rpc if
-    // available, otherwise read and update:
-    const { data: row, error: selErr } = await (sb as any)
-      .from('theme_gen_log')
-      .select('count')
-      .eq('ip', ip)
-      .eq('day', today)
-      .single();
-
-    if (selErr) {
-      console.error('theme_gen_log select error (fail-open):', selErr.message);
-      return { limited: false, count: 0 };
-    }
-
-    const currentCount: number = row?.count ?? 1;
-
-    // If count is still 1 after upsert the row was just inserted (first request).
-    // Otherwise we need to increment: update count = currentCount + 1.
-    if (currentCount > 1) {
-      // Row already existed; upsert above reset it to 1 — fix by updating to real value.
-      // Re-read the real pre-existing count using a raw SQL increment pattern:
-      await (sb as any)
-        .from('theme_gen_log')
-        .update({ count: currentCount })
-        .eq('ip', ip)
-        .eq('day', today);
-    }
-
-    // Re-read after potential update to get final authoritative count.
-    const { data: finalRow, error: finalErr } = await (sb as any)
-      .from('theme_gen_log')
-      .select('count')
-      .eq('ip', ip)
-      .eq('day', today)
-      .single();
-
-    if (finalErr) {
-      console.error('theme_gen_log final select error (fail-open):', finalErr.message);
-      return { limited: false, count: 0 };
-    }
-
-    const finalCount: number = finalRow?.count ?? 1;
-    return { limited: finalCount > maxPerDay, count: finalCount };
+    const count: number = typeof data === 'number' ? data : parseInt(String(data), 10) || 1;
+    return { limited: count > maxPerDay, count };
   } catch (err) {
     console.error('rate-limit check threw (fail-open):', err);
     return { limited: false, count: 0 };
