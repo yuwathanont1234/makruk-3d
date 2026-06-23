@@ -219,13 +219,38 @@ export class MobileGame {
     }, 120);
   }
 
+  /**
+   * ตรวจว่าตาเดินที่ decode แล้วถูกกติกากับ state ปัจจุบันจริง —
+   * `from` ต้องมีหมากของฝ่ายที่ถึงตาเดิน และ move ต้องอยู่ใน legalMovesFrom.
+   * คืน Move ที่ canonical จาก engine หรือ null ถ้าไม่ถูกกติกา
+   */
+  private validateMove(s: GameState, mv: Move): Move | null {
+    const piece = s.board[mv.from];
+    if (!piece || piece.color !== s.turn) return null;
+    return legalMovesFrom(s.board, mv.from).find((m) => m.to === mv.to && !!m.promotion === !!mv.promotion) ?? null;
+  }
+
   private async onRemoteMove(ply: number, enc: string): Promise<void> {
     if (this.mode !== 'online') return;
     if (ply !== this.gs.history.length) {
       this.online?.send('hello', {});
       return;
     }
-    await this.applyAndAnimate(decodeMove(enc));
+    let mv: Move;
+    try {
+      mv = decodeMove(enc);
+    } catch {
+      this.online?.send('hello', {}); // ตาเดินผิดรูปแบบ → ขอซิงก์ใหม่
+      return;
+    }
+    const legal = this.validateMove(this.gs, mv);
+    if (!legal) {
+      // ตาเดินไม่ถูกกติกา (อาจเพี้ยน/ถูกแก้ไข) — ไม่เดิน แล้วขอซิงก์ใหม่
+      console.warn('[online] ปฏิเสธตาเดินจาก network ที่ไม่ถูกกติกา:', enc);
+      this.online?.send('hello', {});
+      return;
+    }
+    await this.applyAndAnimate(legal);
   }
 
   private resetLocalGame(): void {
@@ -300,10 +325,28 @@ export class MobileGame {
 
   private applyWelcome(p: Record<string, unknown>): void {
     const hostColor = (p.hostColor as Color) ?? 'white';
-    this.myColor = this.online && this.online.role === 'host' ? hostColor : opposite(hostColor);
-    const moves = (p.moves as string[]) ?? [];
-    this.gs = createGame();
-    for (const enc of moves) this.gs = applyMove(this.gs, decodeMove(enc));
+    const nextColor = this.online && this.online.role === 'host' ? hostColor : opposite(hostColor);
+    const moves = Array.isArray(p.moves) ? (p.moves as unknown[]) : [];
+
+    // เล่นซ้ำลง state ชั่วคราว + validate ทุกตา — ถ้าตาใดเพี้ยน/ผิดกติกา ยกเลิกการซิงก์
+    // (ไม่เข้าสู่ state ที่พัง) แล้วขอซิงก์ใหม่จากโฮสต์
+    let next = createGame();
+    try {
+      for (const enc of moves) {
+        if (typeof enc !== 'string') throw new Error('รูปแบบตาเดินไม่ถูกต้อง');
+        const mv = decodeMove(enc); // โยน error ถ้าพิกัดเพี้ยน (L4)
+        const legal = this.validateMove(next, mv);
+        if (!legal) throw new Error(`ตาเดินไม่ถูกกติกา: ${enc}`);
+        next = applyMove(next, legal);
+      }
+    } catch (e) {
+      console.warn('[online] welcome เสียหาย — ยกเลิกการซิงก์:', (e as Error).message);
+      this.online?.send('hello', {});
+      return;
+    }
+
+    this.myColor = nextColor;
+    this.gs = next;
     this.over = false;
     this.selected = null;
     this.inputLocked = false;

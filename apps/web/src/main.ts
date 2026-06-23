@@ -254,6 +254,17 @@ async function humanMove(move: Move): Promise<void> {
   if (mode === 'ai' && !over && state.turn === aiSide) triggerAI();
 }
 
+/**
+ * ตรวจว่าตาเดินที่ decode แล้วถูกกติกากับ state ปัจจุบันจริง —
+ * `from` ต้องมีหมากของฝ่ายที่ถึงตาเดิน และ move ต้องอยู่ใน legalMovesFrom.
+ * คืน Move ที่ "canonical" จาก engine (กัน flag promotion ที่ฝั่งส่งมาเพี้ยน) หรือ null ถ้าไม่ถูกกติกา
+ */
+function validateMove(s: GameState, mv: Move): Move | null {
+  const piece = s.board[mv.from];
+  if (!piece || piece.color !== s.turn) return null;
+  return legalMovesFrom(s.board, mv.from).find((m) => m.to === mv.to && !!m.promotion === !!mv.promotion) ?? null;
+}
+
 // ตาเดินจากคู่ต่อสู้ออนไลน์
 async function onRemoteMove(ply: number, enc: string): Promise<void> {
   if (mode !== 'online') return;
@@ -261,7 +272,23 @@ async function onRemoteMove(ply: number, enc: string): Promise<void> {
     online?.send('hello', {}); // เพี้ยน → ขอ sync ใหม่จาก host
     return;
   }
-  await applyAndAnimate(decodeMove(enc));
+  let mv: Move;
+  try {
+    mv = decodeMove(enc);
+  } catch {
+    hud.setStatus('ได้รับตาเดินที่ผิดรูปแบบ — ขอซิงก์ใหม่', 'normal');
+    online?.send('hello', {});
+    return;
+  }
+  const legal = validateMove(state, mv);
+  if (!legal) {
+    // ตาเดินไม่ถูกกติกา (อาจถูกแก้ไข/เพี้ยน) — ไม่เดิน เพื่อกัน state พัง แล้วขอซิงก์ใหม่
+    console.warn('[online] ปฏิเสธตาเดินจาก network ที่ไม่ถูกกติกา:', enc);
+    hud.setStatus('ปฏิเสธตาเดินที่ไม่ถูกกติกาจากคู่ต่อสู้', 'normal');
+    online?.send('hello', {});
+    return;
+  }
+  await applyAndAnimate(legal);
 }
 
 function triggerAI(): void {
@@ -367,10 +394,29 @@ function sendWelcome(): void {
 
 function applyWelcome(p: Record<string, unknown>): void {
   const hostColor = (p.hostColor as Color) ?? 'white';
-  myColor = online && online.role === 'host' ? hostColor : opposite(hostColor);
-  const moves = (p.moves as string[]) ?? [];
-  state = createGame();
-  for (const enc of moves) state = applyMove(state, decodeMove(enc));
+  const nextColor = online && online.role === 'host' ? hostColor : opposite(hostColor);
+  const moves = Array.isArray(p.moves) ? (p.moves as unknown[]) : [];
+
+  // เล่นซ้ำลง state ชั่วคราวก่อน + validate ทุกตา — ถ้าตาใดเพี้ยน/ผิดกติกา ให้ยกเลิก
+  // การซิงก์ทั้งหมด (ไม่เข้าสู่ state ที่พัง) แล้วขอซิงก์ใหม่จากโฮสต์
+  let next = createGame();
+  try {
+    for (const enc of moves) {
+      if (typeof enc !== 'string') throw new Error('รูปแบบตาเดินไม่ถูกต้อง');
+      const mv = decodeMove(enc); // โยน error ถ้าพิกัดเพี้ยน (L4)
+      const legal = validateMove(next, mv);
+      if (!legal) throw new Error(`ตาเดินไม่ถูกกติกา: ${enc}`);
+      next = applyMove(next, legal);
+    }
+  } catch (e) {
+    console.warn('[online] welcome เสียหาย — ยกเลิกการซิงก์:', (e as Error).message);
+    hud.setOnlineStatus('ข้อมูลเกมเพี้ยน — กำลังขอซิงก์ใหม่…');
+    online?.send('hello', {});
+    return;
+  }
+
+  myColor = nextColor;
+  state = next;
   over = false;
   selected = null;
   inputLocked = false;
