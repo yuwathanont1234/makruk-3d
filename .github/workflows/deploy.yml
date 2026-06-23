@@ -1,0 +1,70 @@
+name: Deploy web to GitHub Pages
+
+# Build apps/web (Vite) and publish to GitHub Pages on every push to main.
+#
+# REQUIRED REPO SETTING (one-time):
+#   Settings → Pages → Build and deployment → Source = "GitHub Actions".
+#   (This workflow uses the official Pages deployment, NOT a gh-pages branch.)
+#
+# Notes:
+# - This is a PROJECT pages site, served at https://<owner>.github.io/makruk-3d/.
+#   The Vite config already sets base '/makruk-3d/' when mode=production
+#   (`vite build` defaults to production), so asset URLs resolve correctly.
+# - apps/web/public/.nojekyll is copied into dist by Vite, which stops Pages'
+#   Jekyll step from dropping files/dirs that start with "_".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Allow GITHUB_TOKEN to deploy to Pages, and OIDC for deploy-pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One concurrent Pages deploy at a time; don't cancel an in-progress one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # npm workspaces: install the whole monorepo once from the repo root.
+      - name: Install dependencies
+        run: npm ci
+
+      # Produces apps/web/dist (base '/makruk-3d/', includes .nojekyll).
+      - name: Build web
+        run: npm run build -w web
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
