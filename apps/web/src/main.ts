@@ -10,6 +10,7 @@ import {
   decodeMove,
   squareToCoord,
   opposite,
+  chooseMove,
   DIFFICULTIES,
 } from '@makruk/engine';
 import type { Color, GameState, Move, Square } from '@makruk/engine';
@@ -48,11 +49,16 @@ let selected: Square | null = null;
 let inputLocked = false;
 let over = false;
 let aiReqId = 0;
+let aiWatchdog: ReturnType<typeof setTimeout> | null = null;
+let aiRetried = false; // ลองคิดซ้ำที่ depth ต่ำลงไปแล้วหรือยัง (ต่อหนึ่งคำขอ)
+const AI_TIMEOUT_MS = 10_000;
 
 // ออนไลน์
 let online: OnlineSession | null = null;
 let myColor: Color = 'white';
 let opponentPresent = false;
+let joinTimer: ReturnType<typeof setTimeout> | null = null; // กันรอ welcome ไม่จบเมื่อเข้าห้องผิด/โฮสต์หาย
+const JOIN_TIMEOUT_MS = 8_000;
 
 const sound = new SoundManager(themeWhite.defaultSoundPack);
 const view = new BoardView(canvas, themeWhite, themeBlack, state.board);
@@ -65,6 +71,7 @@ const hud = new Hud(uiRoot, {
   cb: {
     onMode: (m) => {
       if (mode === 'online' && m !== 'online' && online) {
+        clearJoinTimer();
         void online.leave();
         online = null;
         opponentPresent = false;
@@ -300,20 +307,53 @@ async function onRemoteMove(ply: number, enc: string): Promise<void> {
   await applyAndAnimate(legal);
 }
 
+function clearAiWatchdog(): void {
+  if (aiWatchdog !== null) {
+    clearTimeout(aiWatchdog);
+    aiWatchdog = null;
+  }
+}
+
+// ส่งงานคิดให้ worker หนึ่งครั้ง พร้อมตั้ง watchdog กันค้าง (worker hang/ไม่ตอบ)
+function postAiJob(reqId: number, depth: number, randomness: number): void {
+  clearAiWatchdog();
+  worker.postMessage({ id: reqId, boardStr: encodeBoard(state.board), color: state.turn, depth, randomness });
+  aiWatchdog = setTimeout(() => {
+    if (reqId !== aiReqId) return; // คำขอนี้ถูกแทนแล้ว
+    aiWatchdog = null;
+    if (!aiRetried && depth > 1) {
+      // ลองใหม่ที่ depth ต่ำลง (เบากว่า เผื่อ worker คิดนานเกินไป)
+      console.warn(`[ai] worker คิดนานเกิน ${AI_TIMEOUT_MS}ms — ลองใหม่ที่ depth ${depth - 1}`);
+      aiRetried = true;
+      postAiJob(reqId, depth - 1, randomness);
+      return;
+    }
+    // ยังไม่ตอบอีก — fallback: คิดแบบเบาบน main thread เพื่อให้เกมเดินต่อ (ไม่ค้าง)
+    console.warn('[ai] worker ไม่ตอบสนอง — ใช้ตาเดินสำรอง (fallback)');
+    hud.setThinking(false);
+    inputLocked = false; // ปลดล็อกเสมอ ไม่ทิ้งให้ค้าง
+    const fb = chooseMove(state.board, state.turn, 1, 1);
+    if (fb.move && !over && state.turn === aiSide) void applyAndAnimate(fb.move);
+  }, AI_TIMEOUT_MS);
+}
+
 function triggerAI(): void {
   inputLocked = true;
   hud.setThinking(true);
   const reqId = ++aiReqId;
+  aiRetried = false;
   const { depth, randomness } = DIFFICULTIES[difficulty];
   // หน่วงนิดหน่อยให้รู้สึกเป็นธรรมชาติ + ให้ UI อัปเดต
   setTimeout(() => {
-    worker.postMessage({ id: reqId, boardStr: encodeBoard(state.board), color: state.turn, depth, randomness });
+    if (reqId !== aiReqId) return; // ถูกยกเลิก (เกมใหม่/ย้อน) ก่อนเริ่มคิด
+    postAiJob(reqId, depth, randomness);
   }, 180);
 }
 
 worker.onmessage = (e: MessageEvent<{ id: number; move: Move | null }>): void => {
   const { id, move } = e.data;
   if (id !== aiReqId) return; // คำตอบเก่า ทิ้ง
+  clearAiWatchdog();
   hud.setThinking(false);
   if (!move) {
     inputLocked = false;
@@ -369,6 +409,7 @@ function resetLocalGame(): void {
 
 function newGame(): void {
   aiReqId++; // ยกเลิกคำขอ AI ที่ค้าง
+  clearAiWatchdog();
   if (mode === 'online') {
     // ออนไลน์: เฉพาะ host รีเซ็ตได้ แล้ว sync ให้คู่ต่อสู้
     if (online && online.role === 'host') {
@@ -424,6 +465,7 @@ function applyWelcome(p: Record<string, unknown>): void {
     return;
   }
 
+  clearJoinTimer(); // ได้ welcome ที่ถูกต้องแล้ว — ยกเลิก timeout การเข้าห้อง
   myColor = nextColor;
   state = next;
   over = false;
@@ -442,9 +484,21 @@ function applyWelcome(p: Record<string, unknown>): void {
 function setupOnlineHandlers(): void {
   if (!online) return;
   online.onPresence = (present) => {
+    const wasPresent = opponentPresent;
     opponentPresent = present;
-    updateOnlineStatus();
-    if (present && online && online.role === 'host') sendWelcome();
+    if (present) {
+      // คู่ต่อสู้ (กลับ)เข้ามา — host ส่งสถานะเกมล่าสุดให้ซิงก์; ปลดล็อกถ้าเป็นตาเรา
+      if (online && online.role === 'host') sendWelcome();
+      if (!over && state.turn === myColor) inputLocked = false;
+      updateOnlineStatus();
+    } else if (wasPresent && state.history.length > 0 && !over) {
+      // คู่ต่อสู้หลุดกลางเกม — แจ้งชัดเจน + ล็อกอินพุตไว้ ไม่ปล่อยให้ค้างรอตาที่จะไม่มา
+      inputLocked = true;
+      hud.setOnlineStatus('คู่ต่อสู้ออกจากห้อง');
+      hud.setStatus('คู่ต่อสู้ออกจากห้อง', 'over');
+    } else {
+      updateOnlineStatus();
+    }
   };
   online.on('hello', () => {
     if (online && online.role === 'host') sendWelcome();
@@ -453,11 +507,33 @@ function setupOnlineHandlers(): void {
   online.on('move', (p) => void onRemoteMove(p.ply as number, p.enc as string));
 }
 
+function clearJoinTimer(): void {
+  if (joinTimer !== null) {
+    clearTimeout(joinTimer);
+    joinTimer = null;
+  }
+}
+
+// กลับสู่เมนูออฟไลน์ (ใช้เมื่อเข้าห้องไม่สำเร็จ/หมดเวลา) — ออกจากห้องและเริ่มเกม 2 คน
+async function resetToMenu(msg: string): Promise<void> {
+  clearJoinTimer();
+  if (online) {
+    await online.leave();
+    online = null;
+  }
+  opponentPresent = false;
+  mode = '2p';
+  hud.setMode('2p');
+  window.alert(msg);
+  newGame();
+}
+
 async function createRoom(): Promise<void> {
   if (!onlineAvailable()) {
     hud.setOnlineStatus('ยังไม่ได้ตั้งค่า Supabase');
     return;
   }
+  clearJoinTimer();
   if (online) await online.leave();
   online = new OnlineSession();
   setupOnlineHandlers();
@@ -479,6 +555,7 @@ async function joinRoom(code: string): Promise<void> {
     hud.setOnlineStatus('ยังไม่ได้ตั้งค่า Supabase');
     return;
   }
+  clearJoinTimer();
   if (online) await online.leave();
   online = new OnlineSession();
   setupOnlineHandlers();
@@ -491,6 +568,12 @@ async function joinRoom(code: string): Promise<void> {
     return;
   }
   online.send('hello', {});
+  // รอ welcome จากโฮสต์ — ถ้าไม่มาภายในเวลาที่กำหนด แปลว่าไม่พบห้อง/โฮสต์ไม่อยู่
+  clearJoinTimer();
+  joinTimer = setTimeout(() => {
+    joinTimer = null;
+    void resetToMenu('ไม่พบห้องนี้ / โฮสต์ไม่อยู่');
+  }, JOIN_TIMEOUT_MS);
 }
 
 function doUndo(): void {
@@ -499,6 +582,7 @@ function doUndo(): void {
   // ที่ไม่ได้ await) — ป้องกัน rebuild ทับ object ที่กำลังถูกอนิเมต
   if (inputLocked || view.busy || state.history.length === 0) return;
   aiReqId++; // ยกเลิกคำขอ AI ที่ค้าง
+  clearAiWatchdog();
   state = undo(state);
   // ในโหมด AI ย้อนทั้งตา AI และตาเราให้กลับมาเป็นตาเรา
   if (mode === 'ai' && state.turn === aiSide && state.history.length > 0) state = undo(state);
