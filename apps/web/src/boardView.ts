@@ -40,6 +40,9 @@ export class BoardView {
 
   private tiles: THREE.Mesh[] = [];
   private pieces = new Map<Square, THREE.Object3D>();
+  // เพิ่มขึ้นทุกครั้งที่ rebuild/setThemes — ใช้ให้ animation ที่ค้างอยู่รู้ว่าตน
+  // ถูก invalidate แล้ว จะได้ไม่ไปแตะ/dispose object ที่ถูกสร้างใหม่หรือถูกทิ้งไปแล้ว
+  private generation = 0;
   private themeWhite: Theme;
   private themeBlack: Theme;
   // กระดาน/แสง/ไฮไลต์ ใช้ธีมฝั่งขาวเป็นหลัก
@@ -216,10 +219,12 @@ export class BoardView {
   }
 
   rebuildPieces(board: Board): void {
-    for (const obj of this.pieces.values()) {
-      this.pieceGroup.remove(obj);
-      disposeObject(obj);
-    }
+    // invalidate animation ที่กำลังทำงาน (ตา in-flight จะไม่แตะ object เก่าอีก)
+    this.generation++;
+    // dispose ทุก child ใน group — รวม orphan จาก animation ที่ค้าง (หมากที่ถูก
+    // กิน/ฝ่ายรุกที่ถูก delete ออกจาก map ไปก่อนแล้วแต่ยังอยู่ใน scene graph)
+    for (const obj of [...this.pieceGroup.children]) disposeObject(obj);
+    this.pieceGroup.clear();
     this.pieces.clear();
     for (let sq = 0; sq < 64; sq++) {
       const p = board[sq];
@@ -241,6 +246,7 @@ export class BoardView {
 
   /** เคลื่อนหมาก + อนิเมชัน (เลื่อน/ม้ากระโดด/กินหมาก/เลื่อนขั้น) */
   async animateMove(o: AnimateOpts): Promise<void> {
+    const gen = this.generation; // ถ้าถูก rebuild ระหว่างอนิเมชัน ค่านี้จะไม่ตรงอีก
     const fromSq = o.move.from;
     const toSq = o.move.to;
     const container = this.pieces.get(fromSq);
@@ -275,6 +281,9 @@ export class BoardView {
             cap.scale.setScalar(1 - 0.5 * sink);
           })
           .then(() => {
+            // ถ้า rebuild/setThemes เกิดระหว่าง tween แล้ว cap ถูก dispose ไปแล้ว
+            // (rebuildPieces กวาดทุก child) — อย่าแตะ/dispose ซ้ำ
+            if (this.generation !== gen) return;
             this.pieceGroup.remove(cap);
             disposeObject(cap);
           });
@@ -288,6 +297,10 @@ export class BoardView {
       easing: isHop ? easeOutCubic : easeInOutQuad,
     });
 
+    // ถ้า rebuild/setThemes/undo เกิดระหว่างการเคลื่อนที่ — container ถูก dispose
+    // และกระดานถูกสร้างใหม่แล้ว: หยุดทันที อย่าใส่กลับเข้า map หรือสร้างหมากเลื่อนขั้น
+    if (this.generation !== gen) return;
+
     // จู่โจม: กระแทกไปข้างหน้าแล้วดึงกลับ (ท่าฟัน/ชน) ตอนกินหมาก
     if (o.isCapture) {
       await this.animator.tween(0.2, (e) => {
@@ -297,6 +310,9 @@ export class BoardView {
       });
       container.position.set(target.x, 0, target.z);
     }
+
+    // เช็คอีกครั้งหลัง await (capture impact) ก่อนใส่กลับเข้า map
+    if (this.generation !== gen) return;
 
     movingTheme.setMoving?.(container, false); // กลับมายืนนิ่ง
     this.pieces.set(toSq, container);

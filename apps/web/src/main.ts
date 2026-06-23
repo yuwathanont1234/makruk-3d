@@ -495,7 +495,9 @@ async function joinRoom(code: string): Promise<void> {
 
 function doUndo(): void {
   if (mode === 'online') return; // ออนไลน์ยังไม่รองรับการขอย้อน
-  if (inputLocked || state.history.length === 0) return;
+  // กันการย้อนระหว่างอนิเมชันยังทำงาน (รวม pop ตอนสลับธีม/tween เลื่อนขั้น
+  // ที่ไม่ได้ await) — ป้องกัน rebuild ทับ object ที่กำลังถูกอนิเมต
+  if (inputLocked || view.busy || state.history.length === 0) return;
   aiReqId++; // ยกเลิกคำขอ AI ที่ค้าง
   state = undo(state);
   // ในโหมด AI ย้อนทั้งตา AI และตาเราให้กลับมาเป็นตาเรา
