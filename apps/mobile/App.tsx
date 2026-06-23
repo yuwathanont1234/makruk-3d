@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { WebView } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import * as Haptics from 'expo-haptics';
 
 // แอปมือถือ = WebView ครอบเว็บ 3D ที่ deploy แล้ว → ได้ทุกฟีเจอร์ครบ
 // (ตัวหมาก 3D, ธีมตำนานไทย + เดิน, ท่าฟันตอนกิน, AI สร้างธีม, เล่นออนไลน์ข้ามแพลตฟอร์ม)
@@ -19,6 +20,20 @@ export default function App() {
     webRef.current?.reload();
   };
 
+  // เว็บ 3D ส่งสัญญาณตอนเดิน/กินหมากมาทาง postMessage → สั่นแบบ native (App Store 4.2)
+  const onMessage = (e: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(e.nativeEvent.data) as { type?: string };
+      if (msg.type === 'capture') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (msg.type === 'move') {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } catch {
+      // ไม่ใช่ข้อความ JSON ที่เรารู้จัก — ข้ามไป
+    }
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar style="light" hidden />
@@ -27,6 +42,7 @@ export default function App() {
         source={{ uri: GAME_URL }}
         style={styles.web}
         originWhitelist={['*']}
+        onMessage={onMessage}
         javaScriptEnabled
         domStorageEnabled
         allowsInlineMediaPlayback
@@ -70,7 +86,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#241a10' },
   web: { flex: 1, backgroundColor: '#241a10' },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#241a10',

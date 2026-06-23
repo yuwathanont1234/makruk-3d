@@ -252,6 +252,10 @@ async function applyAndAnimate(move: Move): Promise<void> {
   });
   view.showLastMove(move.from, move.to);
   if (move.promotion) sound.play('promote');
+  // ส่งสัญญาณให้ native shell (Expo WebView) สั่นตอนเดิน/กิน — no-op ในเบราว์เซอร์ปกติ
+  (window as any).ReactNativeWebView?.postMessage(
+    JSON.stringify({ type: captured ? 'capture' : 'move' }),
+  );
   updateHud();
 
   const st = status(state);
