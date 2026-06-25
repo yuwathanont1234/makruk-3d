@@ -37,6 +37,8 @@ export class BoardView {
   private lastGroup = new THREE.Group();
   private lightGroup = new THREE.Group();
   private backdrop: THREE.Object3D | null = null;
+  // texture ของท้องฟ้าไล่เฉด (ถ้าธีมกำหนด sky) — เก็บไว้ dispose ตอนสลับธีมกันรั่ว
+  private bgTexture: THREE.Texture | null = null;
 
   private tiles: THREE.Mesh[] = [];
   private pieces = new Map<Square, THREE.Object3D>();
@@ -101,7 +103,20 @@ export class BoardView {
   // --- environment / lights / backdrop ---
   private applyEnvironment(): void {
     const env = this.theme.environment;
-    this.scene.background = new THREE.Color(env.background);
+
+    // ทิ้ง texture ท้องฟ้าเก่าก่อนสร้างใหม่ (กันรั่วตอนสลับธีม)
+    if (this.bgTexture) {
+      this.bgTexture.dispose();
+      this.bgTexture = null;
+    }
+    if (env.sky) {
+      // ท้องฟ้าไล่เฉดแนวตั้ง: สร้าง CanvasTexture ราคาถูก (1×256) แล้วใช้เป็น scene.background
+      this.bgTexture = this.makeSkyTexture(env.sky);
+      this.scene.background = this.bgTexture;
+    } else {
+      // ไม่มี sky → สีพื้นหลังเรียบเหมือนเดิม (ธีม procedural ไม่เปลี่ยน)
+      this.scene.background = new THREE.Color(env.background);
+    }
     this.scene.fog = env.fog ? new THREE.Fog(env.fog.color, env.fog.near, env.fog.far) : null;
 
     this.lightGroup.clear();
@@ -155,6 +170,27 @@ export class BoardView {
     (grid.material as THREE.Material).opacity = 0.12;
     grid.position.y = -0.2;
     return grid;
+  }
+
+  /** ท้องฟ้าไล่เฉดแนวตั้ง (บน→ขอบฟ้า→ล่าง) — CanvasTexture ราคาถูกใช้เป็น scene.background */
+  private makeSkyTexture(sky: { top: number; horizon: number; bottom: number }): THREE.Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    const hex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
+    if (ctx) {
+      const g = ctx.createLinearGradient(0, 0, 0, 256);
+      g.addColorStop(0, hex(sky.top));
+      g.addColorStop(0.62, hex(sky.horizon));
+      g.addColorStop(1, hex(sky.bottom));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 4, 256);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
   }
 
   // --- board ---

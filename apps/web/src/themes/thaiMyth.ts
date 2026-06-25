@@ -28,6 +28,7 @@ export const thaiMyth: Theme = createGltfTheme({
   },
   environment: {
     background: 0x241a10,
+    sky: { top: 0x3a2a55, horizon: 0xc9803f, bottom: 0x18100a }, // วัดยามพระอาทิตย์ตก
     backdrop: 'none',
     hemi: { sky: 0xffe9c2, ground: 0x3a2a18, intensity: 0.75 },
     dir: { color: 0xfff1d6, intensity: 1.4 },

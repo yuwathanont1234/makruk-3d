@@ -28,6 +28,7 @@ export const spaceRobot: Theme = createGltfTheme({
   },
   environment: {
     background: 0x0b1120,
+    sky: { top: 0x05060f, horizon: 0x121f3a, bottom: 0x02030a }, // อวกาศลึก (ดาววาดทับ)
     backdrop: 'stars',
     hemi: { sky: 0xcfe0ff, ground: 0x1a2030, intensity: 1.15 },
     dir: { color: 0xffffff, intensity: 2.1 },

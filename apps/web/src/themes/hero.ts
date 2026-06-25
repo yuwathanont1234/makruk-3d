@@ -28,6 +28,7 @@ export const superhero: Theme = createGltfTheme({
   },
   environment: {
     background: 0x12203d,
+    sky: { top: 0x2a2a58, horizon: 0xd9843f, bottom: 0x10101e }, // เมืองยามพลบค่ำ
     backdrop: 'grid',
     hemi: { sky: 0xdfe9ff, ground: 0x223150, intensity: 1.1 },
     dir: { color: 0xffffff, intensity: 2.0 },
