@@ -1,0 +1,15 @@
+{
+  "name": "หมากรุกไทย 3D",
+  "short_name": "หมากรุกไทย",
+  "description": "เกมหมากรุกไทย 3D — เล่นกับเพื่อน, AI, หรือออนไลน์ข้ามแพลตฟอร์ม",
+  "start_url": ".",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#241a10",
+  "theme_color": "#241a10",
+  "lang": "th",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
