@@ -13,7 +13,7 @@ import {
   chooseMove,
   DIFFICULTIES,
 } from '@makruk/engine';
-import type { Color, GameState, Move, Square } from '@makruk/engine';
+import type { Color, GameState, Move, PieceType, Square } from '@makruk/engine';
 import { BoardView } from './boardView';
 import { SoundManager } from './audio/SoundManager';
 import { SOUND_PACKS } from './audio/packs';
@@ -52,6 +52,10 @@ let aiReqId = 0;
 let aiWatchdog: ReturnType<typeof setTimeout> | null = null;
 let aiRetried = false; // ลองคิดซ้ำที่ depth ต่ำลงไปแล้วหรือยัง (ต่อหนึ่งคำขอ)
 const AI_TIMEOUT_MS = 10_000;
+let gameStarted = false; // ผ่านหน้า quick-start แล้วหรือยัง (กัน AI/เสียงเริ่มก่อนกดเล่น)
+let hintCooldown = false; // throttle ปุ่มคำแนะนำ
+const HINT_THROTTLE_MS = 3_000;
+const LS_LAST_MODE = 'makruk_lastMode';
 
 // ออนไลน์
 let online: OnlineSession | null = null;
@@ -77,12 +81,17 @@ const hud = new Hud(uiRoot, {
         opponentPresent = false;
       }
       mode = m;
+      localStorage.setItem(LS_LAST_MODE, m);
       hud.setMode(m);
-      if (m === 'online') updateOnlineStatus();
-      else newGame();
+      if (m === 'online') {
+        updateOnlineStatus();
+        updateHud(); // อัปเดตชื่อผู้เล่นเป็นโหมดออนไลน์
+      } else newGame();
     },
     onDifficulty: (d) => {
       difficulty = d;
+      hud.setDifficulty(d);
+      updateHud(); // อัปเดตชื่อ "AI ระดับ…"
     },
     onAiSide: (s) => {
       aiSide = s;
@@ -102,17 +111,20 @@ const hud = new Hud(uiRoot, {
     onJoinRoom: (code) => void joinRoom(code),
     onAiTheme: () => void onAiTheme(),
     onBlackTheme: (id) => void selectTheme(id, 'black'),
+    onFlip: () => doFlip(),
+    onHint: () => void doHint(),
+    onQuickStart: (m) => startFromQuickStart(m),
   },
 });
 
-async function selectTheme(id: string, side: 'white' | 'black'): Promise<void> {
+async function selectTheme(id: string, side: 'white' | 'black' = 'white'): Promise<void> {
   const t = getTheme(id);
   if (t.preload) {
-    hud.setStatus('กำลังโหลดโมเดล 3D…', 'normal');
+    hud.setNotice('กำลังโหลดโมเดล 3D…');
     try {
       await t.preload();
     } catch {
-      hud.setStatus('โหลดโมเดลไม่สำเร็จ', 'normal');
+      hud.setNotice('โหลดโมเดลไม่สำเร็จ');
       return;
     }
   }
@@ -125,6 +137,7 @@ async function selectTheme(id: string, side: 'white' | 'black'): Promise<void> {
   }
   view.setThemes(themeWhite, themeBlack, state.board);
   refreshHighlights();
+  hud.setNotice('');
   updateHud();
 }
 
@@ -146,7 +159,7 @@ async function onAiTheme(): Promise<void> {
       'ต้องการสร้างต่อหรือไม่?'
   );
   if (!ok) return;
-  hud.setStatus('✨ AI กำลังสร้างโมเดล 3D… (อาจใช้เวลาหลายนาที)', 'normal');
+  hud.setNotice('✨ AI กำลังสร้างโมเดล 3D… (อาจใช้เวลาหลายนาที)');
   try {
     const res = await fetch(`${url}/functions/v1/generate-theme`, {
       method: 'POST',
@@ -156,16 +169,17 @@ async function onAiTheme(): Promise<void> {
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || res.statusText);
     const t = createAiModelTheme(data.id || 'ai', data.name || prompt, data.models || {});
-    hud.setStatus('✨ กำลังโหลดโมเดล…', 'normal');
+    hud.setNotice('✨ กำลังโหลดโมเดล…');
     await t.preload?.();
     themeWhite = t;
     sound.setPack(t.defaultSoundPack);
     hud.setSound(t.defaultSoundPack);
     view.setThemes(themeWhite, themeBlack, state.board);
     refreshHighlights();
+    hud.setNotice('');
     updateHud();
   } catch (e) {
-    hud.setStatus('สร้างธีมไม่สำเร็จ: ' + (e as Error).message, 'normal');
+    hud.setNotice('สร้างธีมไม่สำเร็จ: ' + (e as Error).message);
   }
 }
 
@@ -186,6 +200,7 @@ function humanTurn(): boolean {
 function select(sq: Square): void {
   selected = sq;
   view.clearSelection();
+  view.clearHint(); // เลือกหมากเอง — ล้างไฮไลต์คำแนะนำ
   view.showSelected(sq);
   const targets = legalMovesFrom(state.board, sq).map((m) => ({ to: m.to, capture: !!state.board[m.to] }));
   view.showTargets(targets);
@@ -207,7 +222,7 @@ function refreshHighlights(): void {
 
 function onPick(sq: Square): void {
   sound.unlock();
-  if (inputLocked || over || !humanTurn()) return;
+  if (!gameStarted || inputLocked || over || !humanTurn()) return;
   const piece = state.board[sq];
 
   if (selected === null) {
@@ -296,7 +311,7 @@ async function onRemoteMove(ply: number, enc: string): Promise<void> {
   try {
     mv = decodeMove(enc);
   } catch {
-    hud.setStatus('ได้รับตาเดินที่ผิดรูปแบบ — ขอซิงก์ใหม่', 'normal');
+    hud.setNotice('ได้รับตาเดินที่ผิดรูปแบบ — ขอซิงก์ใหม่');
     online?.send('hello', {});
     return;
   }
@@ -304,7 +319,7 @@ async function onRemoteMove(ply: number, enc: string): Promise<void> {
   if (!legal) {
     // ตาเดินไม่ถูกกติกา (อาจถูกแก้ไข/เพี้ยน) — ไม่เดิน เพื่อกัน state พัง แล้วขอซิงก์ใหม่
     console.warn('[online] ปฏิเสธตาเดินจาก network ที่ไม่ถูกกติกา:', enc);
-    hud.setStatus('ปฏิเสธตาเดินที่ไม่ถูกกติกาจากคู่ต่อสู้', 'normal');
+    hud.setNotice('ปฏิเสธตาเดินที่ไม่ถูกกติกาจากคู่ต่อสู้');
     online?.send('hello', {});
     return;
   }
@@ -370,32 +385,111 @@ function onGameOver(st: 'checkmate' | 'stalemate' | 'draw'): void {
   over = true;
   inputLocked = true;
   let msg: string;
+  let sub: string;
+  let emoji: string;
   if (st === 'checkmate') {
     const w = winner(state);
-    msg = `🏆 ${w ? colorTH(w) : ''} ชนะ! (รุกจน)`;
+    msg = `${w ? colorTH(w) : ''}ชนะ!`;
+    sub = 'รุกจน — ยอดเยี่ยม';
+    emoji = '🏆';
     sound.play('checkmate');
   } else {
-    msg = st === 'stalemate' ? '🤝 อับ — เสมอ' : '🤝 เสมอ';
+    msg = 'เสมอ';
+    sub = st === 'stalemate' ? 'อับ — เดินต่อไม่ได้' : 'นับศักดิ์ครบ/หมากไม่พอ';
+    emoji = '🤝';
     sound.play('end');
   }
   updateHud();
-  hud.showOverlay(msg);
+  hud.showOverlay(msg, sub, emoji);
+}
+
+// ค่าหมากสำหรับคำนวณ material delta (จำนวนเต็มเพื่อการแสดงผล; ขุนไม่นับ)
+const PIECE_VALUE: Record<PieceType, number> = { khun: 0, rua: 5, ma: 3, khon: 3, met: 2, bia: 1 };
+
+/**
+ * คำนวณหมากที่แต่ละฝ่ายจับได้ จาก state.history (single source of truth)
+ * — ฝ่ายที่ "จับ" = สีของหมากที่เดิน (r.piece.color); หมากที่ถูกจับ = r.captured
+ * คืน list ของ PieceType ที่ฝ่ายขาว/ดำจับได้ + material delta ของแต่ละฝ่าย
+ */
+function computeCaptured(): { white: PieceType[]; black: PieceType[]; whiteDelta: number; blackDelta: number } {
+  const white: PieceType[] = [];
+  const black: PieceType[] = [];
+  for (const r of state.history) {
+    if (!r.captured) continue;
+    if (r.piece.color === 'white') white.push(r.captured.type);
+    else black.push(r.captured.type);
+  }
+  const sum = (arr: PieceType[]): number => arr.reduce((s, t) => s + PIECE_VALUE[t], 0);
+  const wScore = sum(white);
+  const bScore = sum(black);
+  // delta แสดงเฉพาะฝ่ายที่ได้เปรียบ (อีกฝ่ายเป็น 0)
+  return {
+    white,
+    black,
+    whiteDelta: Math.max(0, wScore - bScore),
+    blackDelta: Math.max(0, bScore - wScore),
+  };
+}
+
+/** ข้อมูลผู้เล่นตามโหมด — top bar = ฝ่ายดำ, bottom bar = ฝ่ายขาว เสมอ */
+function playerInfos(): { white: { avatar: string; name: string; label: string }; black: { avatar: string; name: string; label: string } } {
+  const diffLabel: Record<Diff, string> = { easy: 'ง่าย', medium: 'กลาง', hard: 'ยาก' };
+  if (mode === 'ai') {
+    const aiName = `AI ระดับ${diffLabel[difficulty]}`;
+    const aiIsWhite = aiSide === 'white';
+    return {
+      white: { avatar: aiIsWhite ? '🤖' : '👤', name: aiIsWhite ? aiName : 'คุณ', label: 'ฝ่ายขาว' },
+      black: { avatar: aiIsWhite ? '👤' : '🤖', name: aiIsWhite ? 'คุณ' : aiName, label: 'ฝ่ายดำ' },
+    };
+  }
+  if (mode === 'online') {
+    const meWhite = myColor === 'white';
+    return {
+      white: { avatar: meWhite ? '👤' : '🌐', name: meWhite ? 'คุณ' : 'คู่ต่อสู้', label: 'ฝ่ายขาว' },
+      black: { avatar: meWhite ? '🌐' : '👤', name: meWhite ? 'คู่ต่อสู้' : 'คุณ', label: 'ฝ่ายดำ' },
+    };
+  }
+  return {
+    white: { avatar: '🧑', name: 'ผู้เล่น 1', label: 'ฝ่ายขาว' },
+    black: { avatar: '🧑', name: 'ผู้เล่น 2', label: 'ฝ่ายดำ' },
+  };
 }
 
 function updateHud(): void {
   hud.setTurn(state.turn);
+  const players = playerInfos();
+  hud.setPlayers(players.white, players.black);
+
   const st = status(state);
   const txt =
     st === 'check' ? 'รุก!' : st === 'checkmate' ? 'รุกจน!' : st === 'stalemate' ? 'อับ (เสมอ)' : st === 'draw' ? 'เสมอ' : '';
   const kind = st === 'check' ? 'check' : st === 'checkmate' || st === 'stalemate' || st === 'draw' ? 'over' : 'normal';
-  hud.setStatus(txt, kind);
-  hud.setHistory(
-    state.history.map((r, i) => ({
-      n: i + 1,
-      text: squareToCoord(r.move.from) + (r.captured ? '×' : '–') + squareToCoord(r.move.to) + (r.promoted ? '⁺' : ''),
-      color: r.piece.color,
-    }))
-  );
+  // ฝ่ายที่ถูกรุก/ถูกรุกจน คือฝ่ายที่ถึงตาเดินปัจจุบัน
+  hud.setStatus(txt, kind, state.turn);
+
+  // captured trays
+  const cap = computeCaptured();
+  hud.setCaptured('white', cap.white, cap.whiteDelta);
+  hud.setCaptured('black', cap.black, cap.blackDelta);
+
+  // move history (จับคู่ ขาว–ดำ ต่อหนึ่งหมายเลขตา)
+  hud.setMoveHistory(buildMovePairs());
+
+  hud.setUndoEnabled(mode !== 'online' && state.history.length > 0 && !over);
+}
+
+/** แปลง state.history เป็นคู่ (ขาว, ดำ) ต่อหนึ่งหมายเลขตา ในสัญกรณ์ไทย-ish */
+function buildMovePairs(): { white: string; black: string | null }[] {
+  const notate = (r: GameState['history'][number]): string =>
+    squareToCoord(r.move.from) + (r.captured ? '×' : '–') + squareToCoord(r.move.to) + (r.promoted ? '⁺' : '');
+  const pairs: { white: string; black: string | null }[] = [];
+  for (let i = 0; i < state.history.length; i += 2) {
+    pairs.push({
+      white: notate(state.history[i]),
+      black: i + 1 < state.history.length ? notate(state.history[i + 1]) : null,
+    });
+  }
+  return pairs;
 }
 
 function resetLocalGame(): void {
@@ -414,19 +508,21 @@ function resetLocalGame(): void {
 function newGame(): void {
   aiReqId++; // ยกเลิกคำขอ AI ที่ค้าง
   clearAiWatchdog();
+  hud.setHintEnabled(true); // ปลดล็อกปุ่มคำแนะนำสำหรับเกมใหม่
   if (mode === 'online') {
     // ออนไลน์: เฉพาะ host รีเซ็ตได้ แล้ว sync ให้คู่ต่อสู้
     if (online && online.role === 'host') {
       resetLocalGame();
-      sound.play('start');
+      if (gameStarted) sound.play('start');
       sendWelcome();
       updateOnlineStatus();
     }
     return;
   }
   resetLocalGame();
-  sound.play('start');
-  if (mode === 'ai' && state.turn === aiSide) triggerAI();
+  // ไม่เล่นเสียง/ไม่ให้ AI เริ่มคิดจนกว่าผู้เล่นจะกดเริ่มจากหน้า quick-start
+  if (gameStarted) sound.play('start');
+  if (gameStarted && mode === 'ai' && state.turn === aiSide) triggerAI();
 }
 
 // ===== ออนไลน์ =====
@@ -499,7 +595,7 @@ function setupOnlineHandlers(): void {
       // คู่ต่อสู้หลุดกลางเกม — แจ้งชัดเจน + ล็อกอินพุตไว้ ไม่ปล่อยให้ค้างรอตาที่จะไม่มา
       inputLocked = true;
       hud.setOnlineStatus('คู่ต่อสู้ออกจากห้อง');
-      hud.setStatus('คู่ต่อสู้ออกจากห้อง', 'over');
+      hud.setNotice('คู่ต่อสู้ออกจากห้อง');
     } else {
       updateOnlineStatus();
     }
@@ -580,6 +676,53 @@ async function joinRoom(code: string): Promise<void> {
   }, JOIN_TIMEOUT_MS);
 }
 
+// กลับกระดาน (หมุนกล้องมองจากฝั่งตรงข้าม)
+function doFlip(): void {
+  view.flip();
+  hud.setFlipped(view.isFlipped);
+}
+
+// คำแนะนำ: คิดตาเดินที่ดี (depth ต่ำ เร็ว) แล้วให้กระดานไฮไลต์ — throttle ~3 วิ
+async function doHint(): Promise<void> {
+  if (hintCooldown || inputLocked || over || view.busy || !humanTurn()) return;
+  hintCooldown = true;
+  hud.setHintEnabled(false);
+  // คิดบน main thread แบบเบา (depth 2) — เร็วพอสำหรับคำแนะนำเดียว ไม่กระทบ AI worker
+  await new Promise((r) => setTimeout(r, 0)); // ปล่อยให้ UI อัปเดต (ปุ่ม disabled) ก่อนคิด
+  const res = chooseMove(state.board, state.turn, 2, 0);
+  if (res.move) {
+    view.showHint(res.move.from, res.move.to);
+    sound.play('select');
+  }
+  setTimeout(() => {
+    hintCooldown = false;
+    // เปิดปุ่มอีกครั้งเฉพาะเมื่อยังเป็นตาเล่นของมนุษย์อยู่
+    hud.setHintEnabled(!inputLocked && !over && humanTurn());
+  }, HINT_THROTTLE_MS);
+}
+
+// เริ่มเกมจากหน้า quick-start — m บอกโหมด ('2p' = เล่นเลย, 'ai'/'online' = เปิด settings)
+function startFromQuickStart(m: Mode): void {
+  sound.unlock();
+  gameStarted = true;
+  hud.hideQuickStart();
+  if (m === '2p') {
+    // เล่นเลย: ใช้โหมดล่าสุดที่จำไว้ ถ้าไม่ใช่ online (online ต้องตั้งห้องก่อน)
+    const last = (localStorage.getItem(LS_LAST_MODE) as Mode | null) ?? '2p';
+    const resume: Mode = last === 'online' ? '2p' : last;
+    mode = resume;
+    hud.setMode(resume);
+    newGame();
+  } else {
+    // vs AI / ออนไลน์: ตั้งโหมดแล้วเปิด settings sheet ให้ผู้เล่นตั้งค่าต่อ
+    mode = m;
+    hud.setMode(m);
+    if (m === 'online') updateOnlineStatus();
+    else newGame();
+    hud.openSettings();
+  }
+}
+
 function doUndo(): void {
   if (mode === 'online') return; // ออนไลน์ยังไม่รองรับการขอย้อน
   // กันการย้อนระหว่างอนิเมชันยังทำงาน (รวม pop ตอนสลับธีม/tween เลื่อนขั้น
@@ -602,8 +745,11 @@ function doUndo(): void {
   updateHud();
 }
 
-// เริ่มต้น
+// เริ่มต้น: แสดงหน้า quick-start (landing) ก่อน — กระดาน 3D หมุนอยู่เบื้องหลัง
+// เกมจริงเริ่มเมื่อผู้เล่นกด "เล่นเลย"/เลือกโหมด (startFromQuickStart)
 updateHud();
+hud.setHintEnabled(false); // ปิดปุ่มคำแนะนำจนกว่าเกมจะเริ่ม
+hud.showQuickStart();
 
 // dev-only hook สำหรับทดสอบ/ดีบัก (ไม่ติดไปกับ production build)
 if (import.meta.env.DEV) {
